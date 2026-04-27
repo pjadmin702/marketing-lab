@@ -117,17 +117,30 @@ export default async function Page({
                 </div>
                 <h2 className="truncate text-lg font-semibold">{active.term}</h2>
                 {stats && (
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {stats.total_videos} videos · {stats.with_transcripts} transcribed
-                    {stats.via_captions ? ` (${stats.via_captions} captions)` : ""}
-                    {stats.via_whisper ? ` (${stats.via_whisper} whisper)` : ""}
-                    {" · "}
-                    <span className={stats.analyzed === stats.total_videos
-                      ? "text-violet-600 dark:text-violet-400"
-                      : "text-zinc-500"}>
-                      {stats.analyzed}/{stats.total_videos} analyzed
-                    </span>
-                  </p>
+                  <>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {stats.total_videos} videos · {stats.with_transcripts} transcribed
+                      {stats.via_captions ? ` (${stats.via_captions} captions)` : ""}
+                      {stats.via_whisper ? ` (${stats.via_whisper} whisper)` : ""}
+                      {" · "}
+                      <span className={stats.analyzed === stats.total_videos
+                        ? "text-violet-600 dark:text-violet-400"
+                        : "text-zinc-500"}>
+                        {stats.analyzed}/{stats.total_videos} analyzed
+                      </span>
+                    </p>
+                    {stats.analyzed > 0 && (
+                      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-zinc-400">
+                        <span>Signal:</span>
+                        <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 font-medium uppercase tracking-wide text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">high</span>
+                        <span>= teaches more than sells (60%+)</span>
+                        <span className="ml-1 rounded-md bg-violet-100 px-1.5 py-0.5 font-medium uppercase tracking-wide text-violet-800 dark:bg-violet-950 dark:text-violet-200">mid</span>
+                        <span>= mixed (40-59%)</span>
+                        <span className="ml-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-200">low</span>
+                        <span>= mostly pitch / lead-gen (&lt;40%)</span>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
               <RefreshButton />
@@ -276,7 +289,10 @@ function AnalyzedBadge({
 }) {
   if (!analyzed) {
     return (
-      <span className="flex-shrink-0 rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500">
+      <span
+        title="This video hasn't been analyzed yet. Click 'Run analysis' to process it."
+        className="flex-shrink-0 rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500"
+      >
         not analyzed
       </span>
     );
@@ -284,23 +300,27 @@ function AnalyzedBadge({
   const density = signalDensity == null ? null : Math.round(signalDensity * 100);
   let label = "analyzed";
   let cls = "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  let tooltip = "Analyzed (no signal density score available).";
   if (density != null) {
     if (density >= 60) {
-      // dense, actionable per minute — the "value-dropper" creators
-      label = "high";
+      label = "high signal";
       cls = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+      tooltip = `${density}% signal density — dense actionable content per minute. A "value-dropper" creator who teaches more than they sell.`;
     } else if (density >= 40) {
-      // mixed — partial signal
-      label = "mid";
+      label = "mid signal";
       cls = "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+      tooltip = `${density}% signal density — mixed. Some real teaching, some filler or recap.`;
     } else {
-      // mostly sales pitch / lead-gen — the "course-shiller" tier
-      label = "low";
+      label = "low signal";
       cls = "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+      tooltip = `${density}% signal density — mostly sales pitch, lead-gen, or surface-level recap. Likely a "course-shiller" creator.`;
     }
   }
   return (
-    <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}>
+    <span
+      title={tooltip}
+      className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+    >
       {label}{density != null ? ` · ${density}%` : ""}
     </span>
   );
