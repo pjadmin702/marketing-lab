@@ -12,18 +12,9 @@ import { SearchQueue } from "@/components/SearchQueue";
 import { SearchHistoryItem } from "@/components/SearchHistoryItem";
 import { NavTabs } from "@/components/NavTabs";
 import { listQueue } from "@/lib/queue";
+import { fmtTime } from "@/lib/format-utils";
 
 export const dynamic = "force-dynamic";
-
-function fmtTime(unix: number): string {
-  const d = new Date(unix * 1000);
-  const now = Date.now();
-  const diff = (now - d.getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString();
-}
 
 function fmtDuration(sec: number | null): string {
   if (!sec) return "—";
@@ -51,9 +42,9 @@ export default async function Page({
   const unresearchedTools = active ? countUnresearchedTools(active.id) : 0;
 
   return (
-    <div className="flex h-screen flex-col">
-    <NavTabs active="tiktok" />
-    <div className="grid flex-1 grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 overflow-hidden bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
+    <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+      <NavTabs active="tiktok" />
+      <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 dark:divide-zinc-800">
       {/* ---- LEFT: search history + new search ---- */}
       <aside className="flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
@@ -244,7 +235,7 @@ export default async function Page({
           />
         )}
       </aside>
-    </div>
+      </div>
     </div>
   );
 }

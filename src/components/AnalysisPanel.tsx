@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import type {
   AggregateRow, ToolInventoryRow, VideoAnalysisRow,
 } from "@/lib/queries";
+import { CONFIDENCE_BADGE, confidenceLabel } from "@/lib/badge-styles";
 
 const TABS = [
   "Action Plan",
@@ -96,17 +97,6 @@ function ActionPlan({ agg }: { agg: AggregateRow | null }) {
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{agg.action_plan_md}</ReactMarkdown>
     </div>
   );
-}
-
-const CONFIDENCE_BADGE: Record<string, string> = {
-  demoed:         "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  named_specific: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  name_drop:      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  pitch_bait:     "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-};
-
-function confidenceLabel(c: string): string {
-  return c === "named_specific" ? "named" : c === "pitch_bait" ? "pitch" : c;
 }
 
 function ToolsView({ tools }: { tools: ToolInventoryRow[] }) {
