@@ -31,6 +31,11 @@ async function main() {
     args: ["--start-maximized"],
   });
 
+  // Inject the click-to-select overlay on every navigation.
+  await ctx.addInitScript({
+    path: path.join(process.cwd(), "scripts", "overlay.client.js"),
+  });
+
   // Expose a callback so a future overlay (Chunk 6) can post selected URLs
   // back to /api/ingest without dealing with CORS.
   await ctx.exposeFunction("sendToLab", async (urls: string[]) => {
