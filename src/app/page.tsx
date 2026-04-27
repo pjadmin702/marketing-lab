@@ -10,6 +10,7 @@ import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { ResearchToolsButton } from "@/components/ResearchToolsButton";
 import { SearchQueue } from "@/components/SearchQueue";
 import { SearchHistoryItem } from "@/components/SearchHistoryItem";
+import { NavTabs } from "@/components/NavTabs";
 import { listQueue } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,9 @@ export default async function Page({
   const unresearchedTools = active ? countUnresearchedTools(active.id) : 0;
 
   return (
-    <div className="grid h-screen grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
+    <div className="flex h-screen flex-col">
+    <NavTabs active="tiktok" />
+    <div className="grid flex-1 grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 overflow-hidden bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
       {/* ---- LEFT: search history + new search ---- */}
       <aside className="flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
@@ -241,6 +244,7 @@ export default async function Page({
           />
         )}
       </aside>
+    </div>
     </div>
   );
 }

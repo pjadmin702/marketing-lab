@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDB } from "@/lib/db";
+import { NavTabs } from "@/components/NavTabs";
 
 const ENTITY_TYPES = [
   { type: "methods",       label: "Methods",        table: "methods",       mentions: "method_mentions",        fk: "method_id" },
@@ -142,7 +143,9 @@ export default async function LibraryPage({
   const mentions = detail ? getMentions(t, detail.id) : [];
 
   return (
-    <div className="grid h-screen grid-cols-[260px_1fr] grid-rows-1">
+    <div className="flex h-screen flex-col">
+    <NavTabs active="tiktok" />
+    <div className="grid flex-1 grid-cols-[260px_1fr] grid-rows-1 overflow-hidden">
       {/* Left sidebar: tabs */}
       <aside className="flex flex-col overflow-y-auto border-r border-zinc-200 p-4 dark:border-zinc-800">
         <div className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Marketing-Lab</div>
@@ -220,6 +223,7 @@ export default async function LibraryPage({
           </ul>
         )}
       </main>
+    </div>
     </div>
   );
 }
