@@ -67,8 +67,8 @@ export default async function Page({
           </h2>
           <NewSearchForm />
         </div>
-        <SearchQueue initial={listQueue()} />
         <div className="flex-1 overflow-y-auto">
+          <SearchQueue initial={listQueue()} />
           <div className="p-4 pb-2">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               History ({searches.length})
