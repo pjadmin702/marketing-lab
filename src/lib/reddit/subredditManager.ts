@@ -17,9 +17,15 @@ export interface GroupRow {
   count: number;
 }
 
-/** Strip leading "r/" or "/r/", trim whitespace, lowercase the prefix only. */
+const SUBREDDIT_NAME_RE = /^[A-Za-z0-9_]{2,50}$/;
+
+/** Strip leading "r/" or "/r/", trim whitespace. */
 export function normalizeSubredditName(raw: string): string {
   return raw.trim().replace(/^\/?r\//i, "").replace(/\/+$/, "");
+}
+
+export function isValidSubredditName(name: string): boolean {
+  return SUBREDDIT_NAME_RE.test(name);
 }
 
 export function listSubreddits(): SubredditRow[] {
@@ -62,7 +68,7 @@ export function searchSubredditCatalog(q: string): SubredditRow[] {
 export function addSubreddit(rawName: string, group?: string, notes?: string): SubredditRow {
   const name = normalizeSubredditName(rawName);
   if (!name) throw new Error("subreddit name cannot be empty");
-  if (!/^[A-Za-z0-9_]{2,50}$/.test(name)) throw new Error(`invalid subreddit name: ${name}`);
+  if (!isValidSubredditName(name)) throw new Error(`invalid subreddit name: ${name}`);
   const db = getDB();
   db.prepare(
     `INSERT INTO reddit_subreddits (name, group_name, notes) VALUES (?, ?, ?)
@@ -79,7 +85,9 @@ export function removeSubreddit(name: string): void {
   getDB().prepare(`DELETE FROM reddit_subreddits WHERE name = ? COLLATE NOCASE`).run(normalizeSubredditName(name));
 }
 
-/** Resolve a mixed input list (group names + raw subreddit names) into a flat list. */
+/** Resolve a mixed input list (group names + raw subreddit names) into a flat list.
+ *  Subreddit names are normalized and silently dropped if they don't match
+ *  the strict name regex — same rule addSubreddit enforces. */
 export function expandSelection(selectors: string[]): string[] {
   const groups = new Set(listGroups().map((g) => g.group_name));
   const out = new Set<string>();
@@ -89,7 +97,8 @@ export function expandSelection(selectors: string[]): string[] {
     if (groups.has(trimmed)) {
       for (const r of listSubredditsInGroup(trimmed)) out.add(r.name);
     } else {
-      out.add(normalizeSubredditName(trimmed));
+      const name = normalizeSubredditName(trimmed);
+      if (isValidSubredditName(name)) out.add(name);
     }
   }
   return [...out];

@@ -16,7 +16,12 @@ type Fmt = "md" | "json" | "csv";
 
 function csvEscape(v: unknown): string {
   if (v == null) return "";
-  const s = String(v).replace(/"/g, '""');
+  // Prefix `'` on leading =, +, -, @, tab, CR (CSV formula-injection guard
+  // for when the file is opened in Excel/Sheets — Reddit titles can start
+  // with any of these).
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  s = s.replace(/"/g, '""');
   return /[",\n\r]/.test(s) ? `"${s}"` : s;
 }
 
