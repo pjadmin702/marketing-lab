@@ -57,9 +57,14 @@ ok "whisper-cli built"
 
 step "Downloading whisper model (${WHISPER_MODEL})"
 if [ ! -f "$MODEL_FILE" ]; then
-  curl -fsSL --retry 3 \
-    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${WHISPER_MODEL}.bin" \
-    -o "$MODEL_FILE"
+  MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${WHISPER_MODEL}.bin"
+  if ! curl -fL --retry 3 --progress-bar "$MODEL_URL" -o "$MODEL_FILE.tmp"; then
+    rm -f "$MODEL_FILE.tmp"
+    fail "Could not download whisper model from HuggingFace.
+   Check your network, or download manually:
+     curl -L '$MODEL_URL' -o '$MODEL_FILE'"
+  fi
+  mv "$MODEL_FILE.tmp" "$MODEL_FILE"
 fi
 ok "model: $MODEL_FILE ($(du -h "$MODEL_FILE" | cut -f1))"
 
