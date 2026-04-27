@@ -1,22 +1,14 @@
 import Link from "next/link";
-import { listSearches, getSearch, getVideosForSearch, getSearchStats } from "@/lib/queries";
+import {
+  listSearches, getSearch, getVideosForSearch, getSearchStats,
+  getVideoAnalyses, getToolInventory, getAggregate,
+} from "@/lib/queries";
 import { NewSearchForm } from "@/components/NewSearchForm";
 import { RefreshButton } from "@/components/RefreshButton";
+import { AnalyzeButton } from "@/components/AnalyzeButton";
+import { AnalysisPanel } from "@/components/AnalysisPanel";
 
 export const dynamic = "force-dynamic";
-
-const ANALYSIS_TABS = [
-  "Action Plan",
-  "Tools",
-  "Methods",
-  "Systems",
-  "Hooks",
-  "Frameworks",
-  "Viral Signals",
-  "Pitfalls",
-  "Speed-to-Publish",
-  "Funnel Flags",
-];
 
 function fmtTime(unix: number): string {
   const d = new Date(unix * 1000);
@@ -48,6 +40,9 @@ export default async function Page({
   const active = searchId ? getSearch(searchId) : null;
   const videos = active ? getVideosForSearch(active.id) : [];
   const stats = active ? getSearchStats(active.id) : null;
+  const analyses = active ? getVideoAnalyses(active.id) : [];
+  const toolInventory = active ? getToolInventory(active.id) : [];
+  const aggregate = active ? getAggregate(active.id) : null;
 
   return (
     <div className="grid h-screen grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
@@ -177,38 +172,46 @@ export default async function Page({
         )}
       </section>
 
-      {/* ---- RIGHT: analysis tabs (placeholder) ---- */}
+      {/* ---- RIGHT: analysis tabs ---- */}
       <aside className="flex flex-col overflow-hidden">
-        <header className="border-b border-zinc-200 p-4 dark:border-zinc-800">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">Analysis</div>
-          <h2 className="text-sm font-semibold">
-            {active ? "Run analysis to populate" : "—"}
-          </h2>
-        </header>
-        <nav className="flex flex-wrap gap-1 border-b border-zinc-200 p-3 text-xs dark:border-zinc-800">
-          {ANALYSIS_TABS.map((t) => (
-            <span
-              key={t}
-              className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-500 dark:bg-zinc-900"
-            >
-              {t}
-            </span>
-          ))}
-        </nav>
-        <div className="flex-1 overflow-y-auto p-4">
-          {!active ? (
-            <p className="text-sm text-zinc-500">Pick a search to see analysis.</p>
-          ) : stats && stats.with_transcripts === 0 ? (
-            <p className="text-sm text-zinc-500">
-              No transcripts yet. Once videos are sent to the lab and transcribed,
-              you can run the Claude analysis here.
-            </p>
-          ) : (
-            <p className="text-sm text-zinc-500">
-              Analysis pipeline lands in the next chunk. {stats?.with_transcripts ?? 0} transcripts ready.
-            </p>
+        <header className="flex items-start justify-between gap-3 border-b border-zinc-200 p-4 dark:border-zinc-800">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">Analysis</div>
+            <h2 className="text-sm font-semibold">
+              {!active
+                ? "—"
+                : aggregate
+                ? "Cross-video synthesis"
+                : stats && stats.with_transcripts > 0
+                ? "Ready to analyze"
+                : "Waiting for transcripts"}
+            </h2>
+          </div>
+          {active && (
+            <AnalyzeButton
+              searchId={active.id}
+              hasTranscripts={(stats?.with_transcripts ?? 0) > 0}
+              hasAggregate={!!aggregate}
+            />
           )}
-        </div>
+        </header>
+        {!active ? (
+          <div className="flex-1 p-4">
+            <p className="text-sm text-zinc-500">Pick a search to see analysis.</p>
+          </div>
+        ) : stats && stats.with_transcripts === 0 ? (
+          <div className="flex-1 p-4">
+            <p className="text-sm text-zinc-500">
+              No transcripts yet. Send videos from the TikTok overlay to populate them.
+            </p>
+          </div>
+        ) : (
+          <AnalysisPanel
+            aggregate={aggregate}
+            tools={toolInventory}
+            videoAnalyses={analyses}
+          />
+        )}
       </aside>
     </div>
   );
