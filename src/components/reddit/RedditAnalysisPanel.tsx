@@ -4,6 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { RedditAggregateRow } from "@/lib/reddit/redditQueries";
+import { CONFIDENCE_BADGE, OPPORTUNITY_KIND_BADGE } from "@/lib/badge-styles";
 
 const TABS = ["Action Plan", "Tools", "Pain Points", "Workflows", "Opportunities", "Trends"] as const;
 type Tab = typeof TABS[number];
@@ -12,22 +13,6 @@ interface Props {
   runId: number;
   aggregate: RedditAggregateRow | null;
 }
-
-const CONFIDENCE_BADGE: Record<string, string> = {
-  demoed:         "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  named_specific: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  name_drop:      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  pitch_bait:     "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-};
-
-const KIND_BADGE: Record<string, string> = {
-  content_idea:    "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200",
-  product_idea:    "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  ad_test:         "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-  traffic_play:    "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  tool_to_install: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
-  experiment:      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-};
 
 export function RedditAnalysisPanel({ runId, aggregate }: Props) {
   const [tab, setTab] = useState<Tab>("Action Plan");
@@ -129,7 +114,7 @@ export function RedditAnalysisPanel({ runId, aggregate }: Props) {
                 {aggregate.opportunities.map((o, i) => (
                   <li key={i} className="rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_BADGE[o.kind] ?? KIND_BADGE.experiment}`}>{o.kind.replace(/_/g, " ")}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${OPPORTUNITY_KIND_BADGE[o.kind] ?? OPPORTUNITY_KIND_BADGE.experiment}`}>{o.kind.replace(/_/g, " ")}</span>
                       <span className="text-sm">{o.description}</span>
                     </div>
                     <p className="mt-1 text-xs italic text-zinc-600 dark:text-zinc-400">{o.rationale}</p>

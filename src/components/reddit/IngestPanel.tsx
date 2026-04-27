@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RedditMode, RedditTimeRange } from "@/lib/reddit/redditIngestor";
+import { getErrorMessage } from "@/lib/format-utils";
 
 interface SubredditRow { name: string; group_name: string | null; }
 interface GroupRow     { group_name: string; count: number; }
@@ -91,7 +92,7 @@ export function IngestPanel({
       setReport(`fetched ${data.posts_upserted} new posts via ${data.queries.length} queries${data.comments_fetched ? `, ${data.comments_fetched} comments` : ""}${data.blocked ? " (BLOCKED — stopped early)" : ""}`);
       router.refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(getErrorMessage(e));
     } finally {
       setBusy(false);
     }

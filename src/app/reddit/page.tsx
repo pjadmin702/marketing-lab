@@ -11,17 +11,9 @@ import { IngestPanel } from "@/components/reddit/IngestPanel";
 import { PostList } from "@/components/reddit/PostList";
 import { RedditAnalysisPanel } from "@/components/reddit/RedditAnalysisPanel";
 import { CrossSourcePanel } from "@/components/reddit/CrossSourcePanel";
+import { fmtTime } from "@/lib/format-utils";
 
 export const dynamic = "force-dynamic";
-
-function fmtTime(unix: number): string {
-  const d = new Date(unix * 1000);
-  const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString();
-}
 
 export default async function RedditPage({
   searchParams,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export function NewRunForm() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export function NewRunForm() {
       router.push(`/reddit?run=${data.run_id}`);
       router.refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(getErrorMessage(e));
     } finally {
       setBusy(false);
     }

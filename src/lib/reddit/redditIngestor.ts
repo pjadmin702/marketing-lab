@@ -120,12 +120,11 @@ function rankingSourceLabel(q: IngestQueryConfig): string {
 
 interface UpsertOutcome { post_id: number; was_new: boolean; }
 
+// One round-trip: INSERT ... ON CONFLICT ... RETURNING. We need to know
+// whether this insert was a brand-new row, so we also return last_seen_at;
+// if it equals first_seen_at, the row was just created.
 function upsertPost(p: RedditPostRaw, signalScore: number): UpsertOutcome {
-  const db = getDB();
-  const existing = db.prepare(`SELECT id FROM reddit_posts WHERE reddit_id = ?`).get(p.id) as { id: number } | undefined;
-  const postType = inferPostType(p);
-
-  db.prepare(
+  const row = getDB().prepare(
     `INSERT INTO reddit_posts (
        reddit_id, subreddit, author, title, selftext, url, permalink,
        score, upvote_ratio, num_comments, created_utc, flair, post_type,
@@ -137,16 +136,15 @@ function upsertPost(p: RedditPostRaw, signalScore: number): UpsertOutcome {
        num_comments = excluded.num_comments,
        flair        = COALESCE(excluded.flair, reddit_posts.flair),
        signal_score = excluded.signal_score,
-       last_seen_at = strftime('%s','now')`
-  ).run(
+       last_seen_at = strftime('%s','now')
+     RETURNING id, first_seen_at, last_seen_at`
+  ).get(
     p.id, p.subreddit, p.author, p.title, p.selftext, p.url, p.permalink,
-    p.score, p.upvote_ratio, p.num_comments, p.created_utc, p.link_flair_text, postType,
+    p.score, p.upvote_ratio, p.num_comments, p.created_utc, p.link_flair_text, inferPostType(p),
     p.is_video ? 1 : 0, p.over_18 ? 1 : 0, signalScore,
     JSON.stringify(p),
-  );
-
-  const row = db.prepare(`SELECT id FROM reddit_posts WHERE reddit_id = ?`).get(p.id) as { id: number };
-  return { post_id: row.id, was_new: !existing };
+  ) as { id: number; first_seen_at: number; last_seen_at: number };
+  return { post_id: row.id, was_new: row.first_seen_at === row.last_seen_at };
 }
 
 function recordAppearance(args: {

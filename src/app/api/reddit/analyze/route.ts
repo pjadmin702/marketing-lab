@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeRun } from "@/lib/reddit/redditAnalyze";
+import { parseJsonBody } from "@/lib/route-helpers";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
-  const { runId, force, postIds } = (body ?? {}) as { runId?: number; force?: boolean; postIds?: number[] };
+  const parsed = await parseJsonBody<{ runId?: number; force?: boolean; postIds?: number[] }>(req);
+  if ("error" in parsed) return parsed.error;
+  const { runId, force, postIds } = parsed.body ?? {};
   if (typeof runId !== "number") {
     return NextResponse.json({ error: "runId (number) required" }, { status: 400 });
   }
@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "postIds must be number[]" }, { status: 400 });
   }
   try {
-    const report = await analyzeRun(runId, { force: !!force, postIds });
-    return NextResponse.json(report);
+    return NextResponse.json(await analyzeRun(runId, { force: !!force, postIds }));
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
   }
 }

@@ -51,11 +51,10 @@ export function formatPost(postId: number, opts: { runId?: number; maxComments?:
   ).get(postId) as PostRow | undefined;
   if (!post) throw new Error(`reddit_post ${postId} not found`);
 
-  const appearances = db.prepare(
-    opts.runId
-      ? `SELECT DISTINCT ranking_source, keyword FROM reddit_post_appearances WHERE post_id = ? AND run_id = ?`
-      : `SELECT DISTINCT ranking_source, keyword FROM reddit_post_appearances WHERE post_id = ?`
-  ).all(...(opts.runId ? [postId, opts.runId] : [postId])) as AppearanceRow[];
+  const appearances = (opts.runId
+    ? db.prepare(`SELECT DISTINCT ranking_source, keyword FROM reddit_post_appearances WHERE post_id = ? AND run_id = ?`).all(postId, opts.runId)
+    : db.prepare(`SELECT DISTINCT ranking_source, keyword FROM reddit_post_appearances WHERE post_id = ?`).all(postId)
+  ) as AppearanceRow[];
 
   const comments = db.prepare(
     `SELECT author, body, score, created_utc FROM reddit_comments
@@ -63,7 +62,7 @@ export function formatPost(postId: number, opts: { runId?: number; maxComments?:
   ).all(postId, opts.maxComments ?? 10) as CommentRow[];
 
   const rankingTypes = appearances.length > 0
-    ? appearances.map((a) => a.keyword ? `${a.ranking_source}` : a.ranking_source).join(", ")
+    ? appearances.map((a) => a.keyword ? `${a.ranking_source} (${a.keyword})` : a.ranking_source).join(", ")
     : "n/a";
 
   const dateIso = new Date(post.created_utc * 1000).toISOString().slice(0, 10);

@@ -43,17 +43,19 @@ export class RedditBlockedError extends Error {
 
 /* ------------------------------------- module-level rate-limit serializer */
 
-let chain: Promise<void> = Promise.resolve();
-let lastRequestAt = 0;
+// Single-flight gate: each caller awaits a "next allowed slot" timestamp,
+// then advances the slot. No promise chain — memory is O(1) regardless of
+// how many requests have flowed through.
 
-function gateRequest<T>(fn: () => Promise<T>): Promise<T> {
-  const next = chain.then(async () => {
-    const wait = Math.max(0, lastRequestAt + MIN_INTERVAL_MS - Date.now());
-    if (wait > 0) await sleep(wait);
-    lastRequestAt = Date.now();
-  });
-  chain = next.then(() => undefined, () => undefined);
-  return next.then(fn);
+let nextSlotAt = 0;
+
+async function gateRequest<T>(fn: () => Promise<T>): Promise<T> {
+  // Reserve our slot before awaiting so concurrent callers serialize.
+  const myStart = Math.max(Date.now(), nextSlotAt);
+  nextSlotAt = myStart + MIN_INTERVAL_MS;
+  const wait = myStart - Date.now();
+  if (wait > 0) await sleep(wait);
+  return fn();
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aggregateCrossSource } from "@/lib/reddit/crossSourceAggregator";
 import { listCrossSourceAggregates, getCrossSourceAggregate } from "@/lib/reddit/redditQueries";
+import { parseJsonBody } from "@/lib/route-helpers";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -16,13 +18,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
-  const { label, tiktokSearchId, redditRunId } = (body ?? {}) as {
-    label?: string; tiktokSearchId?: number | null; redditRunId?: number | null;
-  };
+  const parsed = await parseJsonBody<{ label?: string; tiktokSearchId?: number | null; redditRunId?: number | null }>(req);
+  if ("error" in parsed) return parsed.error;
+  const { label, tiktokSearchId, redditRunId } = parsed.body ?? {};
   if (!label || typeof label !== "string") {
     return NextResponse.json({ error: "label (string) required" }, { status: 400 });
   }
@@ -30,9 +28,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "at least one of tiktokSearchId or redditRunId required" }, { status: 400 });
   }
   try {
-    const r = await aggregateCrossSource({ label, tiktokSearchId, redditRunId });
-    return NextResponse.json(r);
+    return NextResponse.json(await aggregateCrossSource({ label, tiktokSearchId, redditRunId }));
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RedditPostListRow } from "@/lib/reddit/redditQueries";
+import { getErrorMessage } from "@/lib/format-utils";
 
 interface Props {
   runId: number;
@@ -72,7 +73,7 @@ export function PostList({ runId, posts }: Props) {
       setInfo(`analyzed ${ok}${errs ? `, ${errs} errors` : ""}, aggregate ${data.aggregate.status}, $${data.cost_usd.toFixed(3)}`);
       router.refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(getErrorMessage(e));
     } finally {
       setBusy(null);
     }
@@ -91,7 +92,7 @@ export function PostList({ runId, posts }: Props) {
       if (!res.ok) throw new Error(data.error || "fetch comments failed");
       router.refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(getErrorMessage(e));
     } finally {
       setBusy(null);
     }

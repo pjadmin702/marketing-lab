@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
 import { redditGet, parseComments, RedditBlockedError, type RedditPostRaw } from "@/lib/reddit/redditClient";
 import { scorePost } from "@/lib/reddit/redditRanker";
+import { parseJsonBody } from "@/lib/route-helpers";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -16,11 +18,9 @@ export const maxDuration = 120;
 const MAX_COMMENTS = 30;
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
-  const { postId, limit } = (body ?? {}) as { postId?: number; limit?: number };
+  const parsed = await parseJsonBody<{ postId?: number; limit?: number }>(req);
+  if ("error" in parsed) return parsed.error;
+  const { postId, limit } = parsed.body ?? {};
   if (typeof postId !== "number") {
     return NextResponse.json({ error: "postId (number) required" }, { status: 400 });
   }
@@ -58,6 +58,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ post_id: post.id, comments_inserted: comments.length, signal_score: newScore });
   } catch (e) {
     const status = e instanceof RedditBlockedError ? 502 : 500;
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status });
+    return NextResponse.json({ error: getErrorMessage(e) }, { status });
   }
 }

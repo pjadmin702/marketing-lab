@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getErrorMessage } from "@/lib/format-utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { CrossSourceListRow } from "@/lib/reddit/redditQueries";
@@ -41,7 +42,7 @@ export function CrossSourcePanel({ redditRunId, tiktokSearches, saved, selectedA
       setLabel("");
       router.refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(getErrorMessage(e));
     } finally {
       setBusy(false);
     }

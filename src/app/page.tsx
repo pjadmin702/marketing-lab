@@ -9,18 +9,9 @@ import { AnalyzeButton } from "@/components/AnalyzeButton";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { ResearchToolsButton } from "@/components/ResearchToolsButton";
 import { NavTabs } from "@/components/NavTabs";
+import { fmtTime } from "@/lib/format-utils";
 
 export const dynamic = "force-dynamic";
-
-function fmtTime(unix: number): string {
-  const d = new Date(unix * 1000);
-  const now = Date.now();
-  const diff = (now - d.getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString();
-}
 
 function fmtDuration(sec: number | null): string {
   if (!sec) return "—";

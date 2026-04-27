@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   listSubreddits, listGroups, addSubreddit, removeSubreddit, searchSubredditCatalog,
 } from "@/lib/reddit/subredditManager";
+import { parseJsonBody } from "@/lib/route-helpers";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export const runtime = "nodejs";
 
@@ -12,19 +14,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
-  const { name, group, notes } = (body ?? {}) as { name?: string; group?: string; notes?: string };
+  const parsed = await parseJsonBody<{ name?: string; group?: string; notes?: string }>(req);
+  if ("error" in parsed) return parsed.error;
+  const { name, group, notes } = parsed.body ?? {};
   if (!name || typeof name !== "string") {
     return NextResponse.json({ error: "name (string) required" }, { status: 400 });
   }
   try {
-    const row = addSubreddit(name, group, notes);
-    return NextResponse.json({ subreddit: row });
+    return NextResponse.json({ subreddit: addSubreddit(name, group, notes) });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
+    return NextResponse.json({ error: getErrorMessage(e) }, { status: 400 });
   }
 }
 

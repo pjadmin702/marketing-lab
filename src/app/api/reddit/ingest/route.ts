@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIngest, createRun, type RedditMode, type RedditTimeRange } from "@/lib/reddit/redditIngestor";
+import { parseJsonBody } from "@/lib/route-helpers";
+import { getErrorMessage } from "@/lib/format-utils";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -22,10 +24,9 @@ const VALID_MODES: RedditMode[] = ["top", "hot", "new", "search"];
 const VALID_TIMES: RedditTimeRange[] = ["hour", "day", "week", "month", "year", "all"];
 
 export async function POST(req: NextRequest) {
-  let body: IngestBody;
-  try { body = (await req.json()) as IngestBody; } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
+  const parsed = await parseJsonBody<IngestBody>(req);
+  if ("error" in parsed) return parsed.error;
+  const body = parsed.body;
 
   if (!Array.isArray(body.selectors) || body.selectors.length === 0) {
     return NextResponse.json({ error: "selectors[] required (subreddit and/or group names)" }, { status: 400 });
@@ -63,6 +64,6 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(report);
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(e) }, { status: 500 });
   }
 }
