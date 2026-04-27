@@ -49,6 +49,19 @@ export interface ResearchReport {
   cost_usd: number;
 }
 
+export type ResearchProgress =
+  | { kind: "start"; total: number }
+  | {
+      kind: "tool";
+      completed: number;
+      total: number;
+      toolId: number;
+      name: string;
+      result: "ok" | "skipped" | "error";
+      verified?: boolean;
+      error?: string;
+    };
+
 interface ContextRow {
   raw_mention: string;
   video_title: string | null;
@@ -117,7 +130,11 @@ interface ToolToResearch {
   name: string;
 }
 
-export async function researchSearch(searchId: number, force = false): Promise<ResearchReport> {
+export async function researchSearch(
+  searchId: number,
+  force = false,
+  onProgress?: (event: ResearchProgress) => void,
+): Promise<ResearchReport> {
   const db = getDB();
   const search = db.prepare("SELECT id FROM searches WHERE id = ?").get(searchId);
   if (!search) throw new Error(`search ${searchId} not found`);
@@ -132,6 +149,10 @@ export async function researchSearch(searchId: number, force = false): Promise<R
     .all(searchId) as Array<ToolToResearch & { researched_at: number | null }>;
 
   const report: ResearchReport = { searchId, results: [], cost_usd: 0 };
+  const total = tools.length;
+  let completed = 0;
+
+  onProgress?.({ kind: "start", total });
 
   // Limited concurrency so we don't burst the cache or slam the network.
   const CONCURRENCY = 3;
@@ -139,6 +160,11 @@ export async function researchSearch(searchId: number, force = false): Promise<R
   const skipped = tools.filter((t) => !force && t.researched_at);
   for (const t of skipped) {
     report.results.push({ tool_id: t.id, name: t.name, status: "skipped" });
+    completed++;
+    onProgress?.({
+      kind: "tool", completed, total,
+      toolId: t.id, name: t.name, result: "skipped",
+    });
   }
 
   let i = 0;
@@ -152,10 +178,18 @@ export async function researchSearch(searchId: number, force = false): Promise<R
         persistResearch(t.id, out);
         report.cost_usd += cost;
         report.results.push({ tool_id: t.id, name: t.name, status: "ok", verified: out.verified });
+        completed++;
+        onProgress?.({
+          kind: "tool", completed, total,
+          toolId: t.id, name: t.name, result: "ok", verified: out.verified,
+        });
       } catch (e) {
-        report.results.push({
-          tool_id: t.id, name: t.name, status: "error",
-          error: e instanceof Error ? e.message : String(e),
+        const errMsg = e instanceof Error ? e.message : String(e);
+        report.results.push({ tool_id: t.id, name: t.name, status: "error", error: errMsg });
+        completed++;
+        onProgress?.({
+          kind: "tool", completed, total,
+          toolId: t.id, name: t.name, result: "error", error: errMsg,
         });
       }
     }

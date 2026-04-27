@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { analyzeSearch } from "@/lib/analyze";
 
 export const runtime = "nodejs";
@@ -7,24 +7,51 @@ export const maxDuration = 600;
 /**
  * POST /api/analyze  body: { searchId: number, force?: boolean }
  *
- * Runs the two-pass analysis: per-video extraction (skipped if already
- * analyzed unless force=true) + aggregate synthesis. Persists to
- * video_analyses, tools, tool_mentions, aggregate_analyses.
+ * Streams Server-Sent Events:
+ *   event: progress  data: AnalyzeProgress
+ *   event: done      data: AnalyzeReport
+ *   event: error     data: { message }
  */
 export async function POST(req: NextRequest) {
   let body: unknown;
   try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+    return sseBadRequest("invalid json");
   }
   const { searchId, force } = (body ?? {}) as { searchId?: number; force?: boolean };
   if (typeof searchId !== "number") {
-    return NextResponse.json({ error: "searchId (number) required" }, { status: 400 });
+    return sseBadRequest("searchId (number) required");
   }
-  try {
-    const report = await analyzeSearch(searchId, !!force);
-    return NextResponse.json(report);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+      };
+      try {
+        const report = await analyzeSearch(searchId, !!force, (e) => send("progress", e));
+        send("done", report);
+      } catch (e) {
+        send("error", { message: e instanceof Error ? e.message : String(e) });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
+function sseBadRequest(message: string): Response {
+  const body = `event: error\ndata: ${JSON.stringify({ message })}\n\n`;
+  return new Response(body, {
+    status: 400,
+    headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+  });
 }

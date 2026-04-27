@@ -12,6 +12,19 @@ export interface AnalyzeReport {
   cost_usd: number;
 }
 
+export type AnalyzeProgress =
+  | { kind: "start"; total: number }
+  | {
+      kind: "video";
+      index: number;
+      total: number;
+      videoId: number;
+      title: string | null;
+      result: "ok" | "skipped" | "error";
+      error?: string;
+    }
+  | { kind: "aggregate"; phase: "start" | "ok" | "skipped" | "error"; error?: string };
+
 interface TranscriptRow {
   video_id: number;
   title: string | null;
@@ -163,7 +176,11 @@ function persistAggregate(searchId: number, out: AggregateOutput): void {
 
 /* --- top-level --- */
 
-export async function analyzeSearch(searchId: number, force = false): Promise<AnalyzeReport> {
+export async function analyzeSearch(
+  searchId: number,
+  force = false,
+  onProgress?: (event: AnalyzeProgress) => void,
+): Promise<AnalyzeReport> {
   const db = getDB();
   const search = db.prepare("SELECT term FROM searches WHERE id = ?").get(searchId) as { term: string } | undefined;
   if (!search) throw new Error(`search ${searchId} not found`);
@@ -177,11 +194,18 @@ export async function analyzeSearch(searchId: number, force = false): Promise<An
 
   const report: AnalyzeReport = { searchId, perVideo: [], aggregate: { status: "skipped" }, cost_usd: 0 };
 
+  onProgress?.({ kind: "start", total: rows.length });
+
   // Per-video pass — sequential so we don't hit Claude rate limits or burst the cache.
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const existing = db.prepare("SELECT 1 FROM video_analyses WHERE video_id = ?").get(row.video_id);
     if (existing && !force) {
       report.perVideo.push({ videoId: row.video_id, status: "skipped" });
+      onProgress?.({
+        kind: "video", index: i + 1, total: rows.length,
+        videoId: row.video_id, title: row.title, result: "skipped",
+      });
       continue;
     }
     try {
@@ -189,11 +213,16 @@ export async function analyzeSearch(searchId: number, force = false): Promise<An
       persistPerVideo(searchId, row.video_id, out);
       report.cost_usd += out._cost;
       report.perVideo.push({ videoId: row.video_id, status: "ok" });
+      onProgress?.({
+        kind: "video", index: i + 1, total: rows.length,
+        videoId: row.video_id, title: row.title, result: "ok",
+      });
     } catch (e) {
-      report.perVideo.push({
-        videoId: row.video_id,
-        status: "error",
-        error: e instanceof Error ? e.message : String(e),
+      const errMsg = e instanceof Error ? e.message : String(e);
+      report.perVideo.push({ videoId: row.video_id, status: "error", error: errMsg });
+      onProgress?.({
+        kind: "video", index: i + 1, total: rows.length,
+        videoId: row.video_id, title: row.title, result: "error", error: errMsg,
       });
     }
   }
@@ -208,8 +237,11 @@ export async function analyzeSearch(searchId: number, force = false): Promise<An
 
   if (analyzedRows.length === 0) {
     report.aggregate = { status: "skipped", error: "no per-video analyses" };
+    onProgress?.({ kind: "aggregate", phase: "skipped", error: "no per-video analyses" });
     return report;
   }
+
+  onProgress?.({ kind: "aggregate", phase: "start" });
 
   try {
     const videos = analyzedRows.map((r) => {
@@ -226,8 +258,11 @@ export async function analyzeSearch(searchId: number, force = false): Promise<An
     persistAggregate(searchId, out);
     report.cost_usd += out._cost;
     report.aggregate = { status: "ok" };
+    onProgress?.({ kind: "aggregate", phase: "ok" });
   } catch (e) {
-    report.aggregate = { status: "error", error: e instanceof Error ? e.message : String(e) };
+    const errMsg = e instanceof Error ? e.message : String(e);
+    report.aggregate = { status: "error", error: errMsg };
+    onProgress?.({ kind: "aggregate", phase: "error", error: errMsg });
   }
 
   return report;
