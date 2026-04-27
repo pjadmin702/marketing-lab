@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { readSse } from "@/lib/sse-client";
+import type { IngestProgress } from "@/lib/ingest";
 
 export function NewSearchForm() {
   const router = useRouter();
@@ -9,6 +11,7 @@ export function NewSearchForm() {
   const [term, setTerm] = useState("");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   // Prefill from ?seed=<term> when a queue item is clicked. Only fills when
@@ -40,22 +43,49 @@ export function NewSearchForm() {
     }
     setBusy(true);
     setErr(null);
+    setProgress("Starting…");
     try {
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ searchTerm: term.trim(), urls }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "ingest failed");
+      if (!res.ok && !res.headers.get("content-type")?.includes("text/event-stream")) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `ingest failed (${res.status})`);
+      }
+
+      let serverErr: string | null = null;
+      let finalSearchId: number | null = null;
+
+      for await (const ev of readSse(res)) {
+        if (ev.event === "progress") {
+          const p = ev.data as IngestProgress;
+          if (p.kind === "start") {
+            setProgress(`Ingesting 0/${p.total} (×${p.concurrency} parallel)…`);
+          } else if (p.kind === "url") {
+            const tag = p.status === "ok"
+              ? (p.transcriptSource === "captions" ? "✓ caps" : "✓ whisper")
+              : "✗ err";
+            setProgress(`Ingesting ${p.completed}/${p.total} · last: ${tag}`);
+          }
+        } else if (ev.event === "done") {
+          finalSearchId = (ev.data as { searchId: number }).searchId;
+        } else if (ev.event === "error") {
+          serverErr = (ev.data as { message: string }).message;
+        }
+      }
+      if (serverErr) throw new Error(serverErr);
+
       setPasted("");
       setTerm("");
-      router.push(`/?s=${data.searchId}`);
+      if (finalSearchId) router.push(`/?s=${finalSearchId}`);
       router.refresh();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -82,7 +112,7 @@ export function NewSearchForm() {
         disabled={busy || !pasted.trim() || !term.trim()}
         className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
       >
-        {busy ? "Ingesting…" : "Ingest URLs"}
+        {busy ? progress ?? "Ingesting…" : "Ingest URLs"}
       </button>
       {err && <p className="text-xs text-red-500">{err}</p>}
     </form>
