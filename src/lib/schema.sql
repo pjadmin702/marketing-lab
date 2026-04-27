@@ -236,6 +236,15 @@ CREATE TABLE IF NOT EXISTS search_queue (
   added_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 
+-- Single-row, free-form markdown north star: mission, tools-to-build,
+-- resources, anything the user wants to keep in front of them. id is
+-- pinned to 1 so we can UPSERT without juggling row IDs.
+CREATE TABLE IF NOT EXISTS plan_doc (
+  id         INTEGER PRIMARY KEY CHECK(id = 1),
+  content    TEXT    NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+);
+
 -- ===========================================================================
 -- Reddit ingestion. Mirrors the TikTok side but uses different primitives:
 --   reddit_runs          ~ searches      (a workspace / saved report)

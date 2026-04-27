@@ -1,7 +1,9 @@
 import Link from "next/link";
 
-export function NavTabs({ active }: { active: "tiktok" | "reddit" }) {
-  const tab = (key: "tiktok" | "reddit", href: string, label: string) => {
+export type NavTabKey = "tiktok" | "reddit" | "plan";
+
+export function NavTabs({ active }: { active: NavTabKey }) {
+  const tab = (key: NavTabKey, href: string, label: string) => {
     const isActive = key === active;
     return (
       <Link
@@ -23,6 +25,7 @@ export function NavTabs({ active }: { active: "tiktok" | "reddit" }) {
       <span className="mr-3 text-xs font-mono uppercase tracking-widest text-zinc-500">marketing-lab</span>
       {tab("tiktok", "/", "TikTok")}
       {tab("reddit", "/reddit", "Reddit")}
+      {tab("plan", "/plan", "Plan")}
     </div>
   );
 }
