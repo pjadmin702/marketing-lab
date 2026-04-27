@@ -143,35 +143,107 @@ async function analyzeAggregate(input: AggregateInput): Promise<AggregateOutput 
 }
 
 function persistAggregate(searchId: number, out: AggregateOutput): void {
-  getDB().prepare(`
-    INSERT INTO aggregate_analyses (
-      search_id, action_plan_md, methods_json, systems_json, hooks_json,
-      frameworks_json, viral_signals_json, pitfalls_json, speed_to_publish_json, raw_json
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(search_id) DO UPDATE SET
-      action_plan_md         = excluded.action_plan_md,
-      methods_json           = excluded.methods_json,
-      systems_json           = excluded.systems_json,
-      hooks_json             = excluded.hooks_json,
-      frameworks_json        = excluded.frameworks_json,
-      viral_signals_json     = excluded.viral_signals_json,
-      pitfalls_json          = excluded.pitfalls_json,
-      speed_to_publish_json  = excluded.speed_to_publish_json,
-      raw_json               = excluded.raw_json,
-      created_at             = strftime('%s','now')
-  `).run(
-    searchId,
-    out.action_plan_md,
-    JSON.stringify(out.methods),
-    JSON.stringify(out.systems),
-    JSON.stringify(out.hooks),
-    JSON.stringify(out.frameworks),
-    JSON.stringify(out.viral_signals),
-    JSON.stringify(out.pitfalls),
-    JSON.stringify(out.speed_to_publish),
-    JSON.stringify(out),
+  const db = getDB();
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO aggregate_analyses (
+        search_id, action_plan_md, methods_json, systems_json, hooks_json,
+        frameworks_json, viral_signals_json, pitfalls_json, speed_to_publish_json, raw_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(search_id) DO UPDATE SET
+        action_plan_md         = excluded.action_plan_md,
+        methods_json           = excluded.methods_json,
+        systems_json           = excluded.systems_json,
+        hooks_json             = excluded.hooks_json,
+        frameworks_json        = excluded.frameworks_json,
+        viral_signals_json     = excluded.viral_signals_json,
+        pitfalls_json          = excluded.pitfalls_json,
+        speed_to_publish_json  = excluded.speed_to_publish_json,
+        raw_json               = excluded.raw_json,
+        created_at             = strftime('%s','now')
+    `).run(
+      searchId,
+      out.action_plan_md,
+      JSON.stringify(out.methods),
+      JSON.stringify(out.systems),
+      JSON.stringify(out.hooks),
+      JSON.stringify(out.frameworks),
+      JSON.stringify(out.viral_signals),
+      JSON.stringify(out.pitfalls),
+      JSON.stringify(out.speed_to_publish),
+      JSON.stringify(out),
+    );
+    writeNormalizedEntities(searchId, out);
+  });
+  tx();
+}
+
+/**
+ * Write the cross-search knowledge-graph rows for a single aggregate.
+ * Idempotent — safe to call repeatedly. Used by persistAggregate (live)
+ * and by the backfill script (one-time migration of legacy JSON).
+ *
+ * The legacy *_json columns on aggregate_analyses stay as raw archives;
+ * these normalized tables are what powers the cross-search Library view.
+ */
+export function writeNormalizedEntities(searchId: number, out: AggregateOutput): void {
+  const db = getDB();
+  const validVideoIds = new Set<number>(
+    (db.prepare("SELECT id FROM videos WHERE search_id = ?").all(searchId) as { id: number }[])
+      .map((r) => r.id)
   );
+  persistEntities(searchId, "methods", "method_mentions", "method_id", validVideoIds,
+    out.methods.map((m) => ({ name: m.name, description: m.explanation, videoIds: m.video_ids })));
+  persistEntities(searchId, "systems", "system_mentions", "system_id", validVideoIds,
+    out.systems.map((s) => ({ name: s.name, description: s.pipeline, videoIds: s.video_ids })));
+  persistEntities(searchId, "hooks", "hook_mentions", "hook_id", validVideoIds,
+    out.hooks.map((h) => ({ name: h.formula, description: h.example, videoIds: h.video_ids })));
+  persistEntities(searchId, "frameworks", "framework_mentions", "framework_id", validVideoIds,
+    out.frameworks.map((f) => ({ name: f.name, description: f.structure, videoIds: f.video_ids })));
+  persistEntities(searchId, "viral_signals", "viral_signal_mentions", "viral_signal_id", validVideoIds,
+    out.viral_signals.map((v) => ({ name: v.signal, description: v.explanation, videoIds: v.video_ids })));
+  persistEntities(searchId, "pitfalls", "pitfall_mentions", "pitfall_id", validVideoIds,
+    out.pitfalls.map((p) => ({ name: p.name, description: p.explanation, videoIds: p.video_ids })));
+  persistEntities(searchId, "speed_tactics", "speed_tactic_mentions", "speed_tactic_id", validVideoIds,
+    out.speed_to_publish.map((s) => ({ name: s.tactic, description: s.explanation, videoIds: s.video_ids })));
+}
+
+interface EntityRow {
+  name: string;
+  description: string | null;
+  videoIds: number[];
+}
+
+function persistEntities(
+  searchId: number,
+  entityTable: string,
+  mentionTable: string,
+  fkCol: string,
+  validVideoIds: Set<number>,
+  rows: EntityRow[],
+): void {
+  const db = getDB();
+  const upsertEntity = db.prepare(
+    `INSERT INTO ${entityTable} (name, description) VALUES (?, ?)
+     ON CONFLICT(name) DO UPDATE SET
+       description = COALESCE(${entityTable}.description, excluded.description),
+       last_seen   = strftime('%s','now')
+     RETURNING id`
+  );
+  const upsertMention = db.prepare(
+    `INSERT INTO ${mentionTable} (${fkCol}, video_id, search_id)
+     VALUES (?, ?, ?)
+     ON CONFLICT(${fkCol}, video_id, search_id) DO NOTHING`
+  );
+  for (const r of rows) {
+    const name = r.name?.trim();
+    if (!name) continue;
+    const e = upsertEntity.get(name, r.description ?? null) as { id: number };
+    for (const vid of r.videoIds ?? []) {
+      if (validVideoIds.has(vid)) upsertMention.run(e.id, vid, searchId);
+    }
+  }
 }
 
 /* --- top-level --- */

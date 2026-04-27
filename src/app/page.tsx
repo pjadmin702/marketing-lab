@@ -50,11 +50,19 @@ export default async function Page({
     <div className="grid h-screen grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
       {/* ---- LEFT: search history + new search ---- */}
       <aside className="flex flex-col overflow-hidden">
-        <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
-          <div className="mb-1 text-xs font-mono uppercase tracking-widest text-zinc-500">
-            marketing-lab
+        <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
+          <div>
+            <div className="mb-1 text-xs font-mono uppercase tracking-widest text-zinc-500">
+              marketing-lab
+            </div>
+            <h1 className="text-sm font-semibold">TikTok Research</h1>
           </div>
-          <h1 className="text-sm font-semibold">TikTok Research</h1>
+          <Link
+            href="/library"
+            className="rounded-md border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Library →
+          </Link>
         </div>
         <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
           <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
