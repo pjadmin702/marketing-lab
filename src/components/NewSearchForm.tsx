@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export function NewSearchForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [term, setTerm] = useState("");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Prefill from ?seed=<term> when a queue item is clicked. Only fills when
+  // the field is empty so user-typed terms aren't clobbered on re-render.
+  useEffect(() => {
+    const seed = searchParams.get("seed");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (seed && !term) setTerm(seed);
+  }, [searchParams, term]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

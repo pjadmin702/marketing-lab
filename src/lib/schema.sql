@@ -225,3 +225,13 @@ CREATE TABLE IF NOT EXISTS speed_tactic_mentions (
 );
 CREATE INDEX IF NOT EXISTS idx_speed_tactic_mentions_search ON speed_tactic_mentions(search_id);
 CREATE INDEX IF NOT EXISTS idx_speed_tactic_mentions_video  ON speed_tactic_mentions(video_id);
+
+-- Search-term checklist: things you want to scrape, with auto-computed
+-- "done" status by joining against the searches + aggregate_analyses tables.
+CREATE TABLE IF NOT EXISTS search_queue (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  term      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  notes     TEXT,
+  priority  INTEGER NOT NULL DEFAULT 0,
+  added_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+);

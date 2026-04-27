@@ -8,6 +8,8 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { AnalyzeButton } from "@/components/AnalyzeButton";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { ResearchToolsButton } from "@/components/ResearchToolsButton";
+import { SearchQueue } from "@/components/SearchQueue";
+import { listQueue } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +72,7 @@ export default async function Page({
           </h2>
           <NewSearchForm />
         </div>
+        <SearchQueue initial={listQueue()} />
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 pb-2">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
