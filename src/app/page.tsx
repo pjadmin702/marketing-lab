@@ -121,6 +121,12 @@ export default async function Page({
                     {stats.total_videos} videos · {stats.with_transcripts} transcribed
                     {stats.via_captions ? ` (${stats.via_captions} captions)` : ""}
                     {stats.via_whisper ? ` (${stats.via_whisper} whisper)` : ""}
+                    {" · "}
+                    <span className={stats.analyzed === stats.total_videos
+                      ? "text-violet-600 dark:text-violet-400"
+                      : "text-zinc-500"}>
+                      {stats.analyzed}/{stats.total_videos} analyzed
+                    </span>
                   </p>
                 )}
               </div>
@@ -155,7 +161,10 @@ export default async function Page({
                         >
                           {v.title || v.url}
                         </a>
-                        <TranscriptBadge source={v.transcript_source} chars={v.transcript_chars} />
+                        <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                          <TranscriptBadge source={v.transcript_source} chars={v.transcript_chars} />
+                          <AnalyzedBadge analyzed={v.analyzed} signalDensity={v.signal_density} />
+                        </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-zinc-500">
                         {v.author && <span>@{v.author}</span>}
@@ -254,6 +263,28 @@ function TranscriptBadge({
   return (
     <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}>
       {label} · {chars ?? 0}c
+    </span>
+  );
+}
+
+function AnalyzedBadge({
+  analyzed,
+  signalDensity,
+}: {
+  analyzed: boolean;
+  signalDensity: number | null;
+}) {
+  if (!analyzed) {
+    return (
+      <span className="flex-shrink-0 rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-900 dark:text-zinc-500">
+        not analyzed
+      </span>
+    );
+  }
+  const density = signalDensity == null ? null : Math.round(signalDensity * 100);
+  return (
+    <span className="flex-shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-800 dark:bg-violet-950 dark:text-violet-200">
+      analyzed{density != null ? ` · ${density}%` : ""}
     </span>
   );
 }
