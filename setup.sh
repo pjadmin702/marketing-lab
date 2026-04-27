@@ -68,6 +68,15 @@ if [ ! -f "$MODEL_FILE" ]; then
 fi
 ok "model: $MODEL_FILE ($(du -h "$MODEL_FILE" | cut -f1))"
 
+step "Installing Playwright Chromium"
+if [ -d "$ROOT/node_modules/playwright" ]; then
+  npx --no -- playwright install chromium >/dev/null 2>&1 || \
+    fail "playwright install chromium failed. Run manually: npx playwright install chromium"
+  ok "Chromium installed"
+else
+  printf "\033[1;33mskip\033[0m playwright not in node_modules — run: npm install\n"
+fi
+
 printf "\n\033[1;32mSetup complete.\033[0m\n"
 printf "  yt-dlp:      %s\n" "$BIN_DIR/yt-dlp"
 printf "  whisper-cli: %s\n" "$BIN_DIR/whisper-cli"
