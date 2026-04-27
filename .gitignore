@@ -44,6 +44,8 @@ next-env.d.ts
 /data/
 /whisper-models/
 /playwright-profile/
+/vendor/
+/bin/
 *.sqlite
 *.sqlite-journal
 *.db
