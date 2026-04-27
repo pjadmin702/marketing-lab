@@ -268,36 +268,53 @@ export async function analyzeSearch(
 
   onProgress?.({ kind: "start", total: rows.length });
 
-  // Per-video pass — sequential so we don't hit Claude rate limits or burst the cache.
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const existing = db.prepare("SELECT 1 FROM video_analyses WHERE video_id = ?").get(row.video_id);
-    if (existing && !force) {
-      report.perVideo.push({ videoId: row.video_id, status: "skipped" });
-      onProgress?.({
-        kind: "video", index: i + 1, total: rows.length,
-        videoId: row.video_id, title: row.title, result: "skipped",
-      });
-      continue;
-    }
-    try {
-      const out = await analyzeOneVideo({ ...row, search_term: search.term });
-      persistPerVideo(searchId, row.video_id, out);
-      report.cost_usd += out._cost;
-      report.perVideo.push({ videoId: row.video_id, status: "ok" });
-      onProgress?.({
-        kind: "video", index: i + 1, total: rows.length,
-        videoId: row.video_id, title: row.title, result: "ok",
-      });
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : String(e);
-      report.perVideo.push({ videoId: row.video_id, status: "error", error: errMsg });
-      onProgress?.({
-        kind: "video", index: i + 1, total: rows.length,
-        videoId: row.video_id, title: row.title, result: "error", error: errMsg,
-      });
+  // Per-video pass — worker pool. better-sqlite3 serializes DB writes
+  // and `claude -p` subprocesses are independent, so 3 concurrent
+  // analyses is safe even on a single Max subscription. Tune via
+  // ANALYZE_CONCURRENCY env var.
+  const concurrency = Math.max(1, Number(process.env.ANALYZE_CONCURRENCY) || 3);
+  const searchTerm = search.term;
+  let next = 0;
+  let completed = 0;
+
+  async function videoWorker() {
+    while (next < rows.length) {
+      const row = rows[next++];
+      const existing = db.prepare("SELECT 1 FROM video_analyses WHERE video_id = ?").get(row.video_id);
+      if (existing && !force) {
+        report.perVideo.push({ videoId: row.video_id, status: "skipped" });
+        completed++;
+        onProgress?.({
+          kind: "video", index: completed, total: rows.length,
+          videoId: row.video_id, title: row.title, result: "skipped",
+        });
+        continue;
+      }
+      try {
+        const out = await analyzeOneVideo({ ...row, search_term: searchTerm });
+        persistPerVideo(searchId, row.video_id, out);
+        report.cost_usd += out._cost;
+        report.perVideo.push({ videoId: row.video_id, status: "ok" });
+        completed++;
+        onProgress?.({
+          kind: "video", index: completed, total: rows.length,
+          videoId: row.video_id, title: row.title, result: "ok",
+        });
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        report.perVideo.push({ videoId: row.video_id, status: "error", error: errMsg });
+        completed++;
+        onProgress?.({
+          kind: "video", index: completed, total: rows.length,
+          videoId: row.video_id, title: row.title, result: "error", error: errMsg,
+        });
+      }
     }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, rows.length) }, videoWorker)
+  );
 
   // Aggregate pass — only if at least 1 video has analysis.
   const analyzedRows = db.prepare(`
