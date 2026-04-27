@@ -232,6 +232,7 @@ CREATE TABLE IF NOT EXISTS search_queue (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   term      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
   notes     TEXT,
+  category  TEXT,
   priority  INTEGER NOT NULL DEFAULT 0,
   added_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );

@@ -17,7 +17,22 @@ export function getDB(): Database.Database {
   db.pragma("foreign_keys = ON");
   const schema = readFileSync(SCHEMA_PATH, "utf8");
   db.exec(schema);
+  runMigrations(db);
   return db;
+}
+
+/**
+ * Idempotent column-additions for tables that existed before a column did.
+ * SQLite ALTER TABLE has no IF NOT EXISTS, so we check pragma first.
+ */
+function runMigrations(db: Database.Database): void {
+  const ensureColumn = (table: string, column: string, ddl: string) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+    }
+  };
+  ensureColumn("search_queue", "category", "category TEXT");
 }
 
 export function closeDB(): void {
