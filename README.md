@@ -1,9 +1,9 @@
 # marketing-lab
 
-A local-first TikTok research lab. Search a topic, pick videos in a real
-Chrome window, get them transcribed, and have Claude pull out a tools
-inventory + a prioritized organic-content action plan — with a built-in
-filter for funnel-pitch / course-seller noise.
+A local-first TikTok research lab. Browse TikTok in your normal browser,
+grab the URLs you want with a one-click bookmarklet, paste them into the
+dashboard, get transcripts + a 10-category Claude analysis, and research
+the tools mentioned — building a cross-search knowledge graph as you go.
 
 Runs on `localhost:3000`. No API keys needed: transcription is local
 (yt-dlp captions, whisper.cpp fallback) and analysis uses the local
@@ -12,19 +12,32 @@ Runs on `localhost:3000`. No API keys needed: transcription is local
 ## Flow
 
 ```
-1. type a search term         →  POST /api/launch
-2. real Chrome opens at TikTok →  Playwright with persistent profile
-3. click checkboxes on tiles  →  injected overlay (chunk 6)
-4. press "Send to Lab"        →  POST /api/ingest
-5. yt-dlp pulls captions      →  free + instant when available
-   else: yt-dlp + whisper.cpp →  local transcription
-6. press "Run analysis"       →  POST /api/analyze
-   per-video pass             →  signal_density, creator_intent,
-                                  funnel_signals, tools_mentioned, hooks…
-   aggregate pass             →  action_plan_md + cross-video synthesis
-7. press "Research tools"     →  POST /api/research-tool
-   per-tool WebSearch+Fetch   →  what_it_does, pricing, official_url
+1. browse tiktok.com in your normal browser, search what you want
+2. click the "Lab Grab" bookmarklet  → copies all video URLs to clipboard
+3. paste into the dashboard textarea →  POST /api/ingest
+4. yt-dlp pulls captions             →  free + instant when available
+   else: yt-dlp + whisper.cpp        →  local transcription
+5. press "Run analysis"              →  POST /api/analyze (SSE progress)
+   per-video pass                    →  signal_density, creator_intent,
+                                          funnel_signals, tools_mentioned, hooks…
+   aggregate pass                    →  action_plan_md + cross-video synthesis
+6. press "Research tools"            →  POST /api/research-tool (SSE progress)
+   per-tool WebSearch+Fetch          →  what_it_does, pricing, official_url
+7. /library                          →  cross-search knowledge graph
+                                          dedupes methods/hooks/etc by name
+                                          across every search you've run
 ```
+
+## Bookmarklet
+
+In your normal browser, save a new bookmark with this URL (single line):
+
+```
+javascript:(()=>{const l=[...new Set([...document.querySelectorAll('a[href*="/video/"]')].map(a=>a.href).filter(u=>/\/video\/\d+/.test(u)))];if(!l.length){alert('No TikTok video links found');return}const t=l.join('\n');navigator.clipboard.writeText(t).then(()=>alert(`Copied ${l.length} TikTok URLs. Paste into dashboard.`)).catch(()=>prompt(`Found ${l.length} URLs:`,t));})()
+```
+
+Click it on any TikTok search results page → all video URLs land in your
+clipboard. Paste into the dashboard, hit **Ingest URLs**.
 
 ## Prerequisites
 
@@ -35,7 +48,8 @@ Runs on `localhost:3000`. No API keys needed: transcription is local
 | git, cmake, make, gcc | any | usually preinstalled / `xcode-select --install` / `apt install build-essential cmake` |
 | Claude Code  | 2.1+     | `npm install -g @anthropic-ai/claude-code` |
 
-Windows: see the WSL recipe below — that's the path of least resistance.
+Windows: use WSL2 Ubuntu — the setup script is bash and needs the build
+toolchain.
 
 ## Setup
 
@@ -43,7 +57,7 @@ Windows: see the WSL recipe below — that's the path of least resistance.
 git clone <this-repo> marketing-lab
 cd marketing-lab
 npm install
-npm run setup           # downloads yt-dlp, builds whisper.cpp, downloads model, installs Playwright Chromium
+npm run setup           # downloads yt-dlp, builds whisper.cpp, downloads model
 npm run dev             # localhost:3000
 ```
 
@@ -51,20 +65,23 @@ npm run dev             # localhost:3000
 
 ## Usage
 
-Open http://localhost:3000 → type a search term → "Open TikTok".
+Open http://localhost:3000. The left sidebar has a **Suggested** queue —
+click **Add starter set** to seed 14 starter searches, then click any
+pending term to fill the search input.
 
-A real Chromium window pops up at the TikTok search results with a
-persistent profile (`playwright-profile/`), so when you log in once it
-sticks for next time. Each video tile gets a green checkbox in the
-top-left corner. Pick what you want, then click the floating
-**Send to Lab** bar at the bottom-right.
+For each search:
 
-Back in the dashboard, the videos appear with transcript-source badges
-(green = TikTok auto-captions, blue = whisper, amber = pending). Once
-you have transcripts, hit **Run analysis** in the right panel. Then
-**Research tools** to fill in the tool inventory facts.
+1. Browse `tiktok.com` in your normal browser, search the term
+2. Scroll to load videos you care about
+3. Click your **Lab Grab** bookmarklet → URLs copied
+4. Paste into the textarea, click **Ingest URLs**
+5. Once transcripts populate, click **Run analysis** in the right panel
+6. Click **Research tools** to fill pricing + URLs
 
-## What each tab shows
+Visit **/library** any time to see the cross-search knowledge graph:
+methods, hooks, frameworks, etc. deduped by name across every search.
+
+## What each tab shows (analysis panel)
 
 | Tab              | Source                                         |
 |------------------|------------------------------------------------|
@@ -84,16 +101,22 @@ you have transcripts, hit **Run analysis** in the right panel. Then
 ```
 Next.js 16 (App Router, Turbopack, Tailwind 4)
     │
-    ├─ /api/launch         → spawns scripts/launch-tiktok.ts (detached)
-    │                          └─ Playwright addInitScript injects scripts/overlay.client.js
     ├─ /api/ingest         → yt-dlp (captions or audio) → whisper.cpp → SQLite
-    ├─ /api/analyze        → claude -p (two passes, JSON Schema)
-    ├─ /api/research-tool  → claude -p with WebSearch/WebFetch
+    ├─ /api/analyze        → claude -p (two passes, JSON Schema) → SSE progress
+    ├─ /api/research-tool  → claude -p with WebSearch/WebFetch  → SSE progress
+    ├─ /api/queue          → search-term checklist (CRUD)
+    ├─ /api/searches/[id]  → DELETE search (cascades all data)
+    │
+    ├─ /library            → cross-search knowledge graph view
     │
     └─ better-sqlite3 → data/marketing-lab.sqlite
                           searches, videos, transcripts,
                           video_analyses, tools, tool_mentions,
-                          aggregate_analyses
+                          aggregate_analyses,
+                          methods, systems, hooks, frameworks,
+                          viral_signals, pitfalls, speed_tactics
+                          (+ *_mentions for each)
+                          search_queue
 ```
 
 Bin / vendor:
@@ -102,35 +125,36 @@ Bin / vendor:
 - `bin/whisper-cli`    — built from `vendor/whisper.cpp/`
 - `whisper-models/ggml-small.en.bin` — ~250 MB
 
-## Cost (approximate)
+## Cost
 
-| Step                       | Per call          |
+Free against your Claude Max subscription. Heavy use counts toward your
+weekly Max quota; no per-token billing.
+
+| Step                       | What runs         |
 |----------------------------|-------------------|
-| Transcription (captions)   | $0                |
-| Transcription (whisper)    | $0 (local CPU)    |
-| Per-video analysis         | ~$0.05 – $0.20    |
-| Aggregate synthesis        | ~$0.10 – $0.30    |
-| Per-tool research          | ~$0.10 – $0.20    |
-
-Billed against your Claude Code subscription.
+| Transcription (captions)   | yt-dlp (local)    |
+| Transcription (whisper)    | whisper.cpp (local CPU) |
+| Per-video analysis         | claude -p         |
+| Aggregate synthesis        | claude -p         |
+| Per-tool research          | claude -p (WebSearch + WebFetch) |
 
 ## Useful scripts
 
 ```sh
-npm run dev          # next dev on localhost:3000
-npm run setup        # idempotent local-tools install
-npm run db:check     # list tables + row counts
+npm run dev           # next dev on localhost:3000
+npm run setup         # idempotent local-tools install
+npm run db:check      # list tables + row counts
+npm run kg:backfill   # populate knowledge graph from existing aggregates
 npx tsx scripts/test-vtt.ts     # VTT parser unit tests
-npx tsx scripts/test-overlay.ts # JSDOM overlay unit tests
 ```
 
 ## Privacy & ToS
 
-The Playwright launcher uses a real browser with you driving — no
-headless scraping, no automated bulk extraction. The overlay just adds
-checkboxes to the page. Transcription runs locally on your machine.
-The SQLite db lives in `data/`, the persistent browser profile lives
-in `playwright-profile/`, and both are gitignored.
+You browse TikTok in your normal browser, logged into your normal
+account. The bookmarklet only reads the URLs of video tiles already
+visible on the page — no headless scraping, no automated bulk
+extraction. Transcription runs locally on your machine. The SQLite db
+lives in `data/` and is gitignored.
 
 ## Windows (WSL2 recipe)
 
