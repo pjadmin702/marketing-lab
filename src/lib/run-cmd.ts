@@ -30,8 +30,8 @@ export function runCmd(
       }, opts.timeoutMs);
     }
 
-    child.stdout.on("data", (d) => (stdout += d.toString()));
-    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.stdout?.on("data", (d) => (stdout += d.toString()));
+    child.stderr?.on("data", (d) => (stderr += d.toString()));
     child.on("error", (err) => {
       if (timer) clearTimeout(timer);
       reject(err);
