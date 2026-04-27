@@ -154,8 +154,10 @@ export async function researchSearch(
 
   onProgress?.({ kind: "start", total });
 
-  // Limited concurrency so we don't burst the cache or slam the network.
-  const CONCURRENCY = 3;
+  // Concurrency: web-search-bound, so going high helps until you hit
+  // Anthropic's WebSearch rate gate. Default 3 is conservative; 6-8 is
+  // usually safe on a Max subscription. Tune via RESEARCH_CONCURRENCY.
+  const CONCURRENCY = Math.max(1, Number(process.env.RESEARCH_CONCURRENCY) || 3);
   const queue = tools.filter((t) => force || !t.researched_at);
   const skipped = tools.filter((t) => !force && t.researched_at);
   for (const t of skipped) {
