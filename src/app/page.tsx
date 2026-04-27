@@ -282,9 +282,26 @@ function AnalyzedBadge({
     );
   }
   const density = signalDensity == null ? null : Math.round(signalDensity * 100);
+  let label = "analyzed";
+  let cls = "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+  if (density != null) {
+    if (density >= 60) {
+      // dense, actionable per minute — the "value-dropper" creators
+      label = "high";
+      cls = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+    } else if (density >= 40) {
+      // mixed — partial signal
+      label = "mid";
+      cls = "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200";
+    } else {
+      // mostly sales pitch / lead-gen — the "course-shiller" tier
+      label = "low";
+      cls = "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200";
+    }
+  }
   return (
-    <span className="flex-shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-800 dark:bg-violet-950 dark:text-violet-200">
-      analyzed{density != null ? ` · ${density}%` : ""}
+    <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}>
+      {label}{density != null ? ` · ${density}%` : ""}
     </span>
   );
 }
