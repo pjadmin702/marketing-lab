@@ -9,6 +9,7 @@ import { AnalyzeButton } from "@/components/AnalyzeButton";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { ResearchToolsButton } from "@/components/ResearchToolsButton";
 import { SearchQueue } from "@/components/SearchQueue";
+import { SearchHistoryItem } from "@/components/SearchHistoryItem";
 import { listQueue } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
@@ -85,31 +86,16 @@ export default async function Page({
             </p>
           ) : (
             <ul className="px-2 pb-4">
-              {searches.map((s) => {
-                const isActive = active?.id === s.id;
-                return (
-                  <li key={s.id}>
-                    <Link
-                      href={`/?s=${s.id}`}
-                      className={`block rounded-md px-2 py-2 text-sm transition-colors ${
-                        isActive
-                          ? "bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900"
-                          : "hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                      }`}
-                    >
-                      <div className="truncate font-medium">{s.term}</div>
-                      <div
-                        className={`flex justify-between text-xs ${
-                          isActive ? "opacity-70" : "text-zinc-500"
-                        }`}
-                      >
-                        <span>{s.video_count} videos</span>
-                        <span>{fmtTime(s.created_at)}</span>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
+              {searches.map((s) => (
+                <SearchHistoryItem
+                  key={s.id}
+                  id={s.id}
+                  term={s.term}
+                  videoCount={s.video_count}
+                  timeLabel={fmtTime(s.created_at)}
+                  isActive={active?.id === s.id}
+                />
+              ))}
             </ul>
           )}
         </div>
