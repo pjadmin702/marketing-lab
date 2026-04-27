@@ -141,6 +141,7 @@ export function IngestPanel({
           value={extraInput}
           onChange={(e) => setExtraInput(e.target.value)}
           placeholder="paste more subreddits, comma or space separated"
+          suppressHydrationWarning
           className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-[11px] focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-50"
         />
       </div>
@@ -177,6 +178,7 @@ export function IngestPanel({
           onChange={(e) => setKeywordsInput(e.target.value)}
           placeholder="claude, n8n, etsy seo (one per line or comma-separated; runs as search/year)"
           rows={2}
+          suppressHydrationWarning
           className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-[11px] focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-50"
         />
       </div>

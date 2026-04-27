@@ -67,6 +67,7 @@ export function CrossSourcePanel({ redditRunId, tiktokSearches, saved, selectedA
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Label (optional)"
+        suppressHydrationWarning
         className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-[11px] dark:border-zinc-700 dark:bg-zinc-950"
       />
       <button

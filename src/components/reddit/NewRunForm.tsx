@@ -40,6 +40,7 @@ export function NewRunForm() {
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Run label (e.g. AI tools — week 17)"
+        suppressHydrationWarning
         className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-zinc-50"
       />
       <button
