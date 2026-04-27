@@ -9,6 +9,8 @@ export interface ClaudeOptions {
   userPrompt: string;
   schema: object;
   timeoutMs?: number;
+  /** List of tool names to allow (e.g. ["WebSearch","WebFetch"]). */
+  allowedTools?: string[];
 }
 
 export interface ClaudeResult<T> {
@@ -33,17 +35,23 @@ interface CliEnvelope {
 }
 
 export async function runClaude<T>(opts: ClaudeOptions): Promise<ClaudeResult<T>> {
+  // Pass the user prompt via stdin to avoid colliding with the variadic
+  // --allowed-tools flag (commander's <tools...> consumes positional args).
   const args = [
     "-p",
+    "--input-format", "text",
     "--output-format", "json",
     "--json-schema", JSON.stringify(opts.schema),
     "--append-system-prompt", opts.systemPrompt,
-    opts.userPrompt,
   ];
+  if (opts.allowedTools && opts.allowedTools.length > 0) {
+    args.push("--allowed-tools", opts.allowedTools.join(","));
+  }
 
   const r = await runCmd("claude", args, {
     cwd: process.cwd(),
     timeoutMs: opts.timeoutMs ?? 300_000,
+    stdin: opts.userPrompt,
   });
   if (r.code !== 0) {
     throw new Error(`claude -p exited ${r.code}: ${r.stderr.slice(0, 800) || r.stdout.slice(0, 800)}`);

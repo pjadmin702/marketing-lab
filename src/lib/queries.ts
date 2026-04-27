@@ -175,6 +175,18 @@ export function getToolInventory(searchId: number): ToolInventoryRow[] {
   }));
 }
 
+export function countUnresearchedTools(searchId: number): number {
+  const r = getDB()
+    .prepare(
+      `SELECT COUNT(DISTINCT t.id) AS c
+         FROM tools t
+         JOIN tool_mentions tm ON tm.tool_id = t.id
+        WHERE tm.search_id = ? AND t.researched_at IS NULL`
+    )
+    .get(searchId) as { c: number };
+  return r.c ?? 0;
+}
+
 export interface AggregateRow {
   action_plan_md: string;
   methods: { name: string; explanation: string; video_ids: number[] }[];

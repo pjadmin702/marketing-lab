@@ -1,12 +1,13 @@
 import Link from "next/link";
 import {
   listSearches, getSearch, getVideosForSearch, getSearchStats,
-  getVideoAnalyses, getToolInventory, getAggregate,
+  getVideoAnalyses, getToolInventory, getAggregate, countUnresearchedTools,
 } from "@/lib/queries";
 import { NewSearchForm } from "@/components/NewSearchForm";
 import { RefreshButton } from "@/components/RefreshButton";
 import { AnalyzeButton } from "@/components/AnalyzeButton";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
+import { ResearchToolsButton } from "@/components/ResearchToolsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function Page({
   const analyses = active ? getVideoAnalyses(active.id) : [];
   const toolInventory = active ? getToolInventory(active.id) : [];
   const aggregate = active ? getAggregate(active.id) : null;
+  const unresearchedTools = active ? countUnresearchedTools(active.id) : 0;
 
   return (
     <div className="grid h-screen grid-cols-[280px_minmax(0,1fr)_400px] divide-x divide-zinc-200 bg-zinc-50 text-zinc-900 dark:divide-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
@@ -188,11 +190,18 @@ export default async function Page({
             </h2>
           </div>
           {active && (
-            <AnalyzeButton
-              searchId={active.id}
-              hasTranscripts={(stats?.with_transcripts ?? 0) > 0}
-              hasAggregate={!!aggregate}
-            />
+            <div className="flex flex-col gap-2">
+              <AnalyzeButton
+                searchId={active.id}
+                hasTranscripts={(stats?.with_transcripts ?? 0) > 0}
+                hasAggregate={!!aggregate}
+              />
+              <ResearchToolsButton
+                searchId={active.id}
+                hasTools={toolInventory.length > 0}
+                unresearchedCount={unresearchedTools}
+              />
+            </div>
           )}
         </header>
         {!active ? (

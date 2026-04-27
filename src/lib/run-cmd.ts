@@ -9,13 +9,19 @@ export interface RunResult {
 export function runCmd(
   cmd: string,
   args: string[],
-  opts: { cwd?: string; timeoutMs?: number } = {}
+  opts: { cwd?: string; timeoutMs?: number; stdin?: string } = {}
 ): Promise<RunResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: opts.cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(cmd, args, {
+      cwd: opts.cwd,
+      stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
     let timer: NodeJS.Timeout | null = null;
+    if (opts.stdin != null && child.stdin) {
+      child.stdin.end(opts.stdin);
+    }
 
     if (opts.timeoutMs) {
       timer = setTimeout(() => {
