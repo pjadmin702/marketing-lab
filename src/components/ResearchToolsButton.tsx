@@ -39,6 +39,7 @@ export function ResearchToolsButton({
 
       let okCount = 0;
       let errCount = 0;
+      let skippedLowSignal = 0;
       let serverErr: string | null = null;
 
       for await (const ev of readSse(res)) {
@@ -51,13 +52,18 @@ export function ResearchToolsButton({
             else if (p.result === "error") errCount++;
             setProgress(`Researching ${p.completed}/${p.total}: ${truncate(p.name, 28)}`);
           }
+        } else if (ev.event === "done") {
+          skippedLowSignal = (ev.data as { skipped_low_signal?: number }).skipped_low_signal ?? 0;
         } else if (ev.event === "error") {
           serverErr = (ev.data as { message: string }).message;
         }
       }
       if (serverErr) throw new Error(serverErr);
 
-      setInfo(`${okCount} researched${errCount ? `, ${errCount} failed` : ""}`);
+      const parts = [`${okCount} researched`];
+      if (errCount) parts.push(`${errCount} failed`);
+      if (skippedLowSignal) parts.push(`${skippedLowSignal} low-signal skipped`);
+      setInfo(parts.join(", "));
       router.refresh();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));

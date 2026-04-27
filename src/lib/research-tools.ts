@@ -46,6 +46,7 @@ export interface ResearchOutput {
 export interface ResearchReport {
   searchId: number;
   results: { tool_id: number; name: string; status: "ok" | "skipped" | "error"; verified?: boolean; error?: string }[];
+  skipped_low_signal: number;
   cost_usd: number;
 }
 
@@ -139,16 +140,27 @@ export async function researchSearch(
   const search = db.prepare("SELECT id FROM searches WHERE id = ?").get(searchId);
   if (!search) throw new Error(`search ${searchId} not found`);
 
-  const tools = db
+  // Skip tools only mentioned in low-signal-density videos (default 20%).
+  // Tools mentioned in even ONE high-signal video pass the filter.
+  // RESEARCH_MIN_SIGNAL=0 disables the filter entirely.
+  const minSignal = Number(process.env.RESEARCH_MIN_SIGNAL ?? "0.2");
+
+  const allTools = db
     .prepare(
-      `SELECT DISTINCT t.id, t.name, t.researched_at
+      `SELECT t.id, t.name, t.researched_at,
+              MAX(COALESCE(va.signal_density, 0)) AS max_signal
          FROM tools t
          JOIN tool_mentions tm ON tm.tool_id = t.id
-        WHERE tm.search_id = ?`
+    LEFT JOIN video_analyses va ON va.video_id = tm.video_id
+        WHERE tm.search_id = ?
+     GROUP BY t.id`
     )
-    .all(searchId) as Array<ToolToResearch & { researched_at: number | null }>;
+    .all(searchId) as Array<ToolToResearch & { researched_at: number | null; max_signal: number }>;
 
-  const report: ResearchReport = { searchId, results: [], cost_usd: 0 };
+  const tools = allTools.filter((t) => t.max_signal >= minSignal);
+  const skippedLowSignal = allTools.length - tools.length;
+
+  const report: ResearchReport = { searchId, results: [], skipped_low_signal: skippedLowSignal, cost_usd: 0 };
   const total = tools.length;
   let completed = 0;
 

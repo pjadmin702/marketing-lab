@@ -183,14 +183,22 @@ export function getToolInventory(searchId: number): ToolInventoryRow[] {
 }
 
 export function countUnresearchedTools(searchId: number): number {
+  // Mirror the signal-density filter from researchSearch so the button
+  // label matches what will actually be researched.
+  const minSignal = Number(process.env.RESEARCH_MIN_SIGNAL ?? "0.2");
   const r = getDB()
     .prepare(
-      `SELECT COUNT(DISTINCT t.id) AS c
-         FROM tools t
-         JOIN tool_mentions tm ON tm.tool_id = t.id
-        WHERE tm.search_id = ? AND t.researched_at IS NULL`
+      `SELECT COUNT(*) AS c FROM (
+         SELECT t.id, MAX(COALESCE(va.signal_density, 0)) AS max_signal
+           FROM tools t
+           JOIN tool_mentions tm ON tm.tool_id = t.id
+      LEFT JOIN video_analyses va ON va.video_id = tm.video_id
+          WHERE tm.search_id = ? AND t.researched_at IS NULL
+       GROUP BY t.id
+         HAVING max_signal >= ?
+       )`
     )
-    .get(searchId) as { c: number };
+    .get(searchId, minSignal) as { c: number };
   return r.c ?? 0;
 }
 
