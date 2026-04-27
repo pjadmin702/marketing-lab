@@ -19,16 +19,17 @@ export function AnalyzeButton({
   const [progress, setProgress] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function run(force: boolean) {
+  async function run(opts: { force?: boolean; limit?: number; skipAggregate?: boolean }) {
     if (busy) return;
     setBusy(true);
     setErr(null);
     setProgress("Starting…");
+    const t0 = Date.now();
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ searchId, force }),
+        body: JSON.stringify({ searchId, ...opts }),
       });
       if (!res.ok && !res.headers.get("content-type")?.includes("text/event-stream")) {
         const data = await res.json().catch(() => ({}));
@@ -36,10 +37,12 @@ export function AnalyzeButton({
       }
 
       let serverErr: string | null = null;
+      let total = 0;
       for await (const ev of readSse(res)) {
         if (ev.event === "progress") {
           const p = ev.data as AnalyzeProgress;
           if (p.kind === "start") {
+            total = p.total;
             setProgress(`Analyzing 0/${p.total}…`);
           } else if (p.kind === "video") {
             const label = p.title ? truncate(p.title, 36) : `video ${p.videoId}`;
@@ -52,6 +55,9 @@ export function AnalyzeButton({
         }
       }
       if (serverErr) throw new Error(serverErr);
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      const perVideo = total > 0 ? `, ${(Number(elapsed) / total).toFixed(1)}s/video` : "";
+      if (opts.limit) alert(`Test done: ${total} videos in ${elapsed}s${perVideo}`);
       router.refresh();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -59,6 +65,13 @@ export function AnalyzeButton({
       setBusy(false);
       setProgress(null);
     }
+  }
+
+  async function runTest() {
+    const ans = prompt("How many videos to test? (defaults to 5)", "5");
+    if (ans === null) return;
+    const n = Math.max(1, Number(ans) || 5);
+    await run({ limit: n, skipAggregate: true });
   }
 
   if (!hasTranscripts) return null;
@@ -72,15 +85,22 @@ export function AnalyzeButton({
   return (
     <div className="flex flex-col gap-2">
       <button
-        onClick={() => run(false)}
+        onClick={() => run({ force: false })}
         disabled={busy}
         className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
       >
         {primaryLabel}
       </button>
+      <button
+        onClick={runTest}
+        disabled={busy}
+        className="rounded-md border border-zinc-300 px-3 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+      >
+        Test N (timed, no aggregate)
+      </button>
       {hasAggregate && (
         <button
-          onClick={() => run(true)}
+          onClick={() => run({ force: true })}
           disabled={busy}
           className="rounded-md border border-zinc-300 px-3 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >

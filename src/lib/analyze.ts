@@ -252,17 +252,25 @@ export async function analyzeSearch(
   searchId: number,
   force = false,
   onProgress?: (event: AnalyzeProgress) => void,
+  options?: { limit?: number; skipAggregate?: boolean },
 ): Promise<AnalyzeReport> {
   const db = getDB();
   const search = db.prepare("SELECT term FROM searches WHERE id = ?").get(searchId) as { term: string } | undefined;
   if (!search) throw new Error(`search ${searchId} not found`);
 
-  const rows = db.prepare(`
+  const allRows = db.prepare(`
     SELECT v.id AS video_id, v.title, v.author, v.duration_sec, t.text
       FROM videos v JOIN transcripts t ON t.video_id = v.id
      WHERE v.search_id = ?
      ORDER BY v.id ASC
   `).all(searchId) as Omit<TranscriptRow, "search_term">[];
+
+  // Limit applies AFTER filtering for unanalyzed (when force=false) so the
+  // "Test N" button gives N actual analyses, not N rows scanned.
+  const candidates = force
+    ? allRows
+    : allRows.filter((r) => !db.prepare("SELECT 1 FROM video_analyses WHERE video_id = ?").get(r.video_id));
+  const rows = options?.limit ? candidates.slice(0, options.limit) : allRows;
 
   const report: AnalyzeReport = { searchId, perVideo: [], aggregate: { status: "skipped" }, cost_usd: 0 };
 
@@ -315,6 +323,12 @@ export async function analyzeSearch(
   await Promise.all(
     Array.from({ length: Math.min(concurrency, rows.length) }, videoWorker)
   );
+
+  if (options?.skipAggregate) {
+    report.aggregate = { status: "skipped", error: "skipAggregate option" };
+    onProgress?.({ kind: "aggregate", phase: "skipped", error: "skipAggregate option" });
+    return report;
+  }
 
   // Aggregate pass — only if at least 1 video has analysis.
   const analyzedRows = db.prepare(`

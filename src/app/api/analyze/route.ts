@@ -17,7 +17,12 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch {
     return sseBadRequest("invalid json");
   }
-  const { searchId, force } = (body ?? {}) as { searchId?: number; force?: boolean };
+  const { searchId, force, limit, skipAggregate } = (body ?? {}) as {
+    searchId?: number;
+    force?: boolean;
+    limit?: number;
+    skipAggregate?: boolean;
+  };
   if (typeof searchId !== "number") {
     return sseBadRequest("searchId (number) required");
   }
@@ -29,7 +34,12 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
       try {
-        const report = await analyzeSearch(searchId, !!force, (e) => send("progress", e));
+        const report = await analyzeSearch(
+          searchId,
+          !!force,
+          (e) => send("progress", e),
+          { limit, skipAggregate },
+        );
         send("done", report);
       } catch (e) {
         send("error", { message: e instanceof Error ? e.message : String(e) });
