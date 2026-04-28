@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type NavTabKey = "tiktok" | "reddit" | "plan";
+export type NavTabKey = "tiktok" | "reddit" | "plan" | "synth";
 
 export function NavTabs({ active }: { active: NavTabKey }) {
   const tab = (key: NavTabKey, href: string, label: string) => {
@@ -26,6 +26,7 @@ export function NavTabs({ active }: { active: NavTabKey }) {
       {tab("tiktok", "/", "TikTok")}
       {tab("reddit", "/reddit", "Reddit")}
       {tab("plan", "/plan", "Plan")}
+      {tab("synth", "/synth", "Synth")}
     </div>
   );
 }

@@ -246,6 +246,19 @@ CREATE TABLE IF NOT EXISTS plan_doc (
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 
+-- Synth briefs: Claude-generated 7-day content sprints distilled from
+-- the user's plan + library + recent aggregates. Persisted so the user
+-- can compare briefs over time as the brain grows.
+CREATE TABLE IF NOT EXISTS synth_briefs (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  question        TEXT,
+  content_md      TEXT    NOT NULL,
+  cost_usd        REAL    NOT NULL DEFAULT 0,
+  library_size    INTEGER NOT NULL DEFAULT 0,
+  source_searches INTEGER NOT NULL DEFAULT 0,
+  created_at      INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+);
+
 -- ===========================================================================
 -- Reddit ingestion. Mirrors the TikTok side but uses different primitives:
 --   reddit_runs          ~ searches      (a workspace / saved report)
