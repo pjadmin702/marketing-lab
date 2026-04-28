@@ -165,6 +165,36 @@ function recentActionPlans(limit = 5): Array<{ search_term: string; action_plan_
     .all(limit) as Array<{ search_term: string; action_plan_md: string }>;
 }
 
+/**
+ * Names of systems that prior `kind = 'systems'` briefs already proposed.
+ * Used to dedupe so re-running "Generate systems" surfaces NEW ideas
+ * instead of rehashing the same 3-5 every time.
+ */
+function priorSystemNames(limit = 5): string[] {
+  const briefs = getDB()
+    .prepare(
+      `SELECT content_md FROM synth_briefs
+        WHERE kind = 'systems'
+        ORDER BY created_at DESC
+        LIMIT ?`
+    )
+    .all(limit) as { content_md: string }[];
+
+  const names = new Set<string>();
+  for (const b of briefs) {
+    // The systems prompt asks for `## System name` headers per system.
+    // Skip the trailing "Recommended starting order" header.
+    const matches = b.content_md.matchAll(/^##\s+(.+?)\s*$/gm);
+    for (const m of matches) {
+      const heading = m[1].trim();
+      if (heading && !heading.toLowerCase().includes("recommended")) {
+        names.add(heading);
+      }
+    }
+  }
+  return [...names];
+}
+
 function fmtList(items: LibraryEntity[]): string {
   return items
     .map((it) => `- **${it.name}** (${it.video_count} videos / ${it.search_count} searches)${it.description ? ` — ${truncate(it.description, 200)}` : ""}`)
@@ -176,7 +206,7 @@ function truncate(s: string, n: number): string {
   return s.slice(0, n - 1) + "…";
 }
 
-function buildUserPrompt(question: string | null): { prompt: string; librarySize: number; sourceSearches: number } {
+function buildUserPrompt(kind: BriefKind, question: string | null): { prompt: string; librarySize: number; sourceSearches: number } {
   const plan = getPlan();
   const methods       = topEntities("methods",       "method_mentions",       "method_id");
   const hooks         = topEntities("hooks",         "hook_mentions",         "hook_id");
@@ -187,6 +217,7 @@ function buildUserPrompt(question: string | null): { prompt: string; librarySize
   const pitfalls      = topEntities("pitfalls",      "pitfall_mentions",      "pitfall_id");
   const tools         = topTools();
   const actionPlans   = recentActionPlans();
+  const priorSystems  = kind === "systems" ? priorSystemNames() : [];
 
   const librarySize =
     methods.length + hooks.length + frameworks.length + systems.length +
@@ -232,6 +263,9 @@ function buildUserPrompt(question: string | null): { prompt: string; librarySize
     `# PRIOR ACTION PLANS (most recent ${actionPlans.length})`,
     actionPlans.map((p) => `## From search: "${p.search_term}"\n\n${p.action_plan_md}`).join("\n\n---\n\n"),
     "",
+    kind === "systems" && priorSystems.length > 0
+      ? `# ALREADY PROPOSED IN PRIOR SYSTEMS BRIEFS (DO NOT repeat or rehash these — propose NEW systems instead):\n${priorSystems.map((n) => `- ${n}`).join("\n")}\n`
+      : "",
     `# YOUR TASK`,
     "",
     "Follow the instructions in the system prompt. Tailor every recommendation to the products and bottlenecks described in the PLAN. Output Markdown only.",
@@ -241,7 +275,7 @@ function buildUserPrompt(question: string | null): { prompt: string; librarySize
 }
 
 export async function generateBrief(kind: BriefKind, question?: string | null): Promise<SynthBrief> {
-  const { prompt, librarySize, sourceSearches } = buildUserPrompt(question ?? null);
+  const { prompt, librarySize, sourceSearches } = buildUserPrompt(kind, question ?? null);
   const systemPrompt = kind === "systems" ? SYSTEMS_SYSTEM_PROMPT : SPRINT_SYSTEM_PROMPT;
 
   const r = await runClaude<{ content_md: string }>({
