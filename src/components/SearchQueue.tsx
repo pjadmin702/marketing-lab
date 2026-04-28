@@ -44,7 +44,11 @@ export function SearchQueue({ initial }: { initial: QueueItem[] }) {
       });
       const data = await res.json();
       setItems(data.items ?? []);
-      setInfo(`Removed ${data.removed} weak fits, refreshed ${data.upserted} categorized.`);
+      const parts: string[] = [];
+      if (data.removed) parts.push(`removed ${data.removed} weak fits`);
+      if (data.recategorized) parts.push(`recategorized ${data.recategorized}`);
+      if (data.upserted) parts.push(`refreshed ${data.upserted}`);
+      setInfo(parts.length ? parts.join(", ") + "." : "Already up to date.");
     } finally { setBusy(false); }
   }
 
@@ -97,8 +101,16 @@ export function SearchQueue({ initial }: { initial: QueueItem[] }) {
     arr.push(it);
     grouped.set(c, arr);
   }
-  // Stable category order: known starters first, "Other" last.
+  // Stable category order. Content-funnel categories first (those move the
+  // needle for the user's TikTok → profile → Etsy funnel); Tier 2 / legacy
+  // categories last; Other absolute last.
   const CATEGORY_ORDER = [
+    "Hooks & openings",
+    "Content formats",
+    "Funnel: TikTok → Etsy",
+    "Content sustainability",
+    "Tier 2: Foundation",
+    // Legacy categories — only show if user still has rows in them
     "Foundation",
     "Content automation",
     "Content strategy",
