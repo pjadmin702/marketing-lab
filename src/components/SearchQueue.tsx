@@ -52,6 +52,24 @@ export function SearchQueue({ initial }: { initial: QueueItem[] }) {
     } finally { setBusy(false); }
   }
 
+  async function suggestFromPlan() {
+    setBusy(true);
+    setInfo("Asking Claude to read your plan and suggest niche searches…");
+    try {
+      const res = await fetch("/api/queue/suggest", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setInfo(null);
+        throw new Error(data.error || `suggest failed (${res.status})`);
+      }
+      setItems(data.items ?? []);
+      const sLen = (data.suggested as Array<unknown>).length;
+      setInfo(`Claude suggested ${sLen}, added ${data.added} new (${sLen - data.added} were duplicates).`);
+    } catch (e) {
+      setInfo(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally { setBusy(false); }
+  }
+
   async function add() {
     const t = newTerm.trim();
     if (!t) return;
@@ -202,12 +220,20 @@ export function SearchQueue({ initial }: { initial: QueueItem[] }) {
                 </button>
               </form>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <button
                   onClick={() => setAdding(true)}
                   className="text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-300"
                 >
                   + add custom term
+                </button>
+                <button
+                  onClick={suggestFromPlan}
+                  disabled={busy}
+                  className="text-[11px] font-medium text-violet-600 underline-offset-2 hover:underline disabled:opacity-40 dark:text-violet-400"
+                  title="Read your /plan doc and suggest 5-10 niche-specific search terms"
+                >
+                  ✨ suggest from my plan
                 </button>
                 <button
                   onClick={reseed}

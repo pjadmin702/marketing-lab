@@ -151,6 +151,17 @@ export function seedStarterSearches(): number {
  * the categorized starter set. Reseed is idempotent: running it twice
  * gives the same final state.
  */
+/**
+ * Suggest niche-specific search terms by feeding the user's plan doc +
+ * existing queue terms to Claude. Returns suggestions; caller decides
+ * whether to insert them.
+ */
+export interface QueueSuggestion {
+  term: string;
+  category: string;
+  note: string;
+}
+
 export function reseedStarterSearches(): { removed: number; recategorized: number; upserted: number } {
   const db = getDB();
   const removeStmt = db.prepare(
@@ -191,5 +202,28 @@ export function reseedStarterSearches(): { removed: number; recategorized: numbe
       upserted += upsertStmt.run(s.term, s.notes ?? null, s.category).changes;
     }
     return { removed, recategorized, upserted };
+  })();
+}
+
+/**
+ * Bulk-add suggested terms. Skips ones that already exist (case-insensitive).
+ * Returns count of newly inserted rows.
+ */
+export function addSuggestedTerms(suggestions: QueueSuggestion[]): number {
+  const db = getDB();
+  const insert = db.prepare(
+    `INSERT INTO search_queue (term, notes, category)
+     VALUES (?, ?, ?)
+     ON CONFLICT(term) DO NOTHING`
+  );
+  return db.transaction(() => {
+    let added = 0;
+    for (const s of suggestions) {
+      const t = s.term.trim();
+      if (!t) continue;
+      const r = insert.run(t, s.note?.trim() || null, s.category?.trim() || null);
+      if (r.changes > 0) added++;
+    }
+    return added;
   })();
 }

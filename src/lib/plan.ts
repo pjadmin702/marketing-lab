@@ -6,6 +6,26 @@ export const DEFAULT_PLAN_CONTENT = `# North Star
 
 The marketing-lab is a research instrument: TikTok + Reddit get scraped for what's actually working *right now*, the brain at \`/library\` dedupes findings across searches, and the highest-recurrence patterns become the blueprint for the AI tools I build next.
 
+## My shops
+
+_Fill these in — Synth and "Suggest from plan" both read this section to tailor recommendations to your actual products._
+
+- **Shop 1 name:** _e.g. Kooki Studio_
+- **Shop 1 URL:** _https://www.etsy.com/shop/..._
+- **What I sell:** _e.g. 3D printed hand-painted earrings_
+- **Price range:** _e.g. $12–$28_
+- **Production constraint:** _e.g. I can ship up to 30 orders/day_
+- **Current sales/day:** _3_
+- **Target sales/day:** _15_
+
+(Add a Shop 2 section below if you have multiple shops.)
+
+## Posting cadence
+
+- **Current:** _e.g. 1 video / week_
+- **Target:** _e.g. 1 video / day_
+- **Time budget for content:** _e.g. 30 min/day shooting + 30 min editing_
+
 ## Tools we're building
 
 _(Pull ideas from \`/library\` once enough searches accumulate. Update status as you go: idea → planning → building → shipped.)_
@@ -20,9 +40,9 @@ _(Pull from \`/library?type=tools\` — these are the ones the lab keeps surfaci
 
 ## Open questions
 
-- _What niche searches haven't I run yet?_
 - _Which methods recur in 5+ creators? (those are proven)_
 - _Which methods only show up once? (those are flash-in-pan, skip)_
+- _What hook formula works best for MY product category?_
 
 ## Decisions log
 
