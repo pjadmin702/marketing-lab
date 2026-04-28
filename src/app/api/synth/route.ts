@@ -13,9 +13,10 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
-  const { question } = (body ?? {}) as { question?: string };
+  const { question, kind } = (body ?? {}) as { question?: string; kind?: string };
+  const briefKind = kind === "systems" ? "systems" : "sprint";
   try {
-    const brief = await generateBrief(question?.trim() || null);
+    const brief = await generateBrief(briefKind, question?.trim() || null);
     return NextResponse.json({ brief });
   } catch (e) {
     return NextResponse.json(

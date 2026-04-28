@@ -33,6 +33,7 @@ function runMigrations(db: Database.Database): void {
     }
   };
   ensureColumn("search_queue", "category", "category TEXT");
+  ensureColumn("synth_briefs", "kind",     "kind TEXT NOT NULL DEFAULT 'sprint'");
 }
 
 export function closeDB(): void {

@@ -246,11 +246,14 @@ CREATE TABLE IF NOT EXISTS plan_doc (
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 
--- Synth briefs: Claude-generated 7-day content sprints distilled from
--- the user's plan + library + recent aggregates. Persisted so the user
--- can compare briefs over time as the brain grows.
+-- Synth briefs: Claude-generated outputs distilled from the user's plan +
+-- library + recent aggregates. `kind` distinguishes a 7-day content
+-- sprint from a buildable-systems brief; both schemas are otherwise
+-- identical so they share the table. Persisted so the user can compare
+-- output over time as the brain grows.
 CREATE TABLE IF NOT EXISTS synth_briefs (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind            TEXT    NOT NULL DEFAULT 'sprint' CHECK(kind IN ('sprint','systems')),
   question        TEXT,
   content_md      TEXT    NOT NULL,
   cost_usd        REAL    NOT NULL DEFAULT 0,

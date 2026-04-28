@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { SynthBrief } from "@/lib/synth";
+import type { SynthBrief, BriefKind } from "@/lib/synth";
 
 export function SynthView({ initial }: { initial: SynthBrief[] }) {
   const router = useRouter();
@@ -12,14 +12,16 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
   const [selectedId, setSelectedId] = useState<number | null>(initial[0]?.id ?? null);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyKind, setBusyKind] = useState<BriefKind | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   const selected = briefs.find((b) => b.id === selectedId) ?? null;
 
-  async function generate() {
+  async function generate(kind: BriefKind) {
     if (busy) return;
     setBusy(true);
+    setBusyKind(kind);
     setErr(null);
     setElapsed(0);
     const t0 = Date.now();
@@ -28,7 +30,7 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
       const res = await fetch("/api/synth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question.trim() || undefined }),
+        body: JSON.stringify({ kind, question: question.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `generate failed (${res.status})`);
@@ -42,6 +44,7 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
     } finally {
       clearInterval(tick);
       setBusy(false);
+      setBusyKind(null);
     }
   }
 
@@ -72,13 +75,24 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
             className="mb-2 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
             suppressHydrationWarning
           />
-          <button
-            onClick={generate}
-            disabled={busy}
-            className="w-full rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            {busy ? `Generating… ${elapsed}s` : "Generate 7-day sprint"}
-          </button>
+          <div className="flex flex-col gap-1.5">
+            <button
+              onClick={() => generate("sprint")}
+              disabled={busy}
+              className="w-full rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              title="Read your plan + library and produce a 7-day TikTok shoot/post sprint"
+            >
+              {busy && busyKind === "sprint" ? `Generating sprint… ${elapsed}s` : "📅 Generate 7-day sprint"}
+            </button>
+            <button
+              onClick={() => generate("systems")}
+              disabled={busy}
+              className="w-full rounded-md border border-violet-500/60 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-40 dark:border-violet-400/40 dark:text-violet-300 dark:hover:bg-violet-950/40"
+              title="Read your plan + library and propose 3-5 buildable AI systems with repo scaffolds"
+            >
+              {busy && busyKind === "systems" ? `Generating systems… ${elapsed}s` : "🛠 Generate systems to build"}
+            </button>
+          </div>
           {err && <p className="mt-2 text-xs text-red-500">{err}</p>}
         </div>
 
@@ -106,10 +120,13 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
                           : "hover:bg-zinc-100 dark:hover:bg-zinc-900"
                       }`}
                     >
-                      <div className="truncate font-medium">
-                        {b.question || "Brief"}
+                      <div className="flex items-center gap-1.5">
+                        <KindBadge kind={b.kind} active={isActive} />
+                        <div className="min-w-0 flex-1 truncate font-medium">
+                          {b.question || (b.kind === "systems" ? "Systems brief" : "Sprint brief")}
+                        </div>
                       </div>
-                      <div className={isActive ? "opacity-70" : "text-zinc-500"}>
+                      <div className={"mt-0.5 " + (isActive ? "opacity-70" : "text-zinc-500")}>
                         {fmtTime(b.created_at)} · {b.library_size} entities · {b.source_searches} searches
                       </div>
                     </button>
@@ -149,14 +166,17 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
         ) : (
           <>
             <header className="flex items-baseline justify-between border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
-              <div>
-                <h2 className="text-sm font-semibold">
-                  {selected.question || "Sprint brief"}
-                </h2>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {fmtTime(selected.created_at)} · {selected.library_size} library entities · {selected.source_searches} source searches
-                  {selected.cost_usd ? ` · $${selected.cost_usd.toFixed(3)}` : ""}
-                </p>
+              <div className="flex items-center gap-2">
+                <KindBadge kind={selected.kind} active={false} />
+                <div>
+                  <h2 className="text-sm font-semibold">
+                    {selected.question || (selected.kind === "systems" ? "Systems brief" : "Sprint brief")}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {fmtTime(selected.created_at)} · {selected.library_size} library entities · {selected.source_searches} source searches
+                    {selected.cost_usd ? ` · $${selected.cost_usd.toFixed(3)}` : ""}
+                  </p>
+                </div>
               </div>
             </header>
             <article className="prose prose-zinc max-w-none flex-1 overflow-y-auto px-8 py-6 dark:prose-invert">
@@ -167,6 +187,19 @@ export function SynthView({ initial }: { initial: SynthBrief[] }) {
       </main>
     </div>
   );
+}
+
+function KindBadge({ kind, active }: { kind: BriefKind; active: boolean }) {
+  const isSystems = kind === "systems";
+  const baseCls = "rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide flex-shrink-0";
+  if (active) {
+    // On dark/active rows, use a subtle inverted treatment.
+    return <span className={baseCls + " bg-white/20 text-white dark:bg-zinc-900/30 dark:text-zinc-900"}>{isSystems ? "sys" : "spr"}</span>;
+  }
+  const cls = isSystems
+    ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+    : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  return <span className={`${baseCls} ${cls}`}>{isSystems ? "sys" : "spr"}</span>;
 }
 
 function fmtTime(unix: number): string {
